@@ -13,5 +13,7 @@ router.delete('/:id', verifyToken, petpalController.deletePetpal);
 
 // Ruta de búsqueda con filtros
 router.post('/search', verifyToken, petpalController.searchPetpals);
+router.get('/search/:id', verifyToken, petpalController.searchByPetId);
+
 
 module.exports = router;

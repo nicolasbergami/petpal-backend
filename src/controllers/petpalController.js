@@ -1,5 +1,7 @@
 // src/controllers/petpalController.js
 const Petpal = require('../models/petpalModel');
+const db = require('../config/db');
+
 
 const getAllPetpals = (req, res) => {
     Petpal.getAll((err, results) => {
@@ -79,6 +81,51 @@ const searchPetpals = (req, res) => {
     });
 };
 
+const searchByPetId = (req, res) => {
+    const petId = req.params.id;
+    const userId = req.user.id;
+    const { location, service_type } = req.query;
+
+    console.log("🔍 Buscando mascota ID:", petId, "para el usuario:", req.user.id);
+
+    // 🔒 Verificamos que la mascota le pertenezca al usuario
+    const query = `SELECT pet_type, weight FROM pets WHERE id = ? AND user_id = ?`;
+    db.query(query, [petId, req.user.id], (err, results) => {
+        if (err) {
+            console.error("❌ Error en la consulta de mascota:", err.message);
+            return res.status(500).json({ message: 'Error consultando la mascota' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Mascota no encontrada o no pertenece al usuario' });
+        }
+
+        const { pet_type, weight: pet_weight } = results[0];
+
+        let size = 'small';
+        if (pet_weight > 8 && pet_weight <= 15) size = 'medium';
+        if (pet_weight > 15) size = 'large';
+
+        const matchQuery = `
+            SELECT * FROM petpal_profiles
+            WHERE location = ?
+            AND service_type = ?
+            AND pet_type = ?
+            AND (size_accepted = ? OR size_accepted = 'all')
+        `;
+
+        db.query(matchQuery, [location, service_type, pet_type, size], (err, results) => {
+            if (err) {
+                console.error("❌ Error en la búsqueda de Petpals:", err.message);
+                return res.status(500).json({ message: 'Error en la búsqueda de Petpals' });
+            }
+
+            return res.status(200).json({ message: "Resultados encontrados", data: results });
+        });
+    });
+};
+
+
 
 module.exports = {
     getAllPetpals,
@@ -86,5 +133,6 @@ module.exports = {
     createPetpal,
     updatePetpal,
     deletePetpal,
-    searchPetpals
+    searchPetpals,
+    searchByPetId
 };

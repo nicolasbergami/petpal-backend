@@ -40,7 +40,10 @@ const login = (req, res) => {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role, dni: user.dni,
+                direccion: user.direccion,
+                barrio: user.barrio,
+                telefono: user.telefono
             }
         });
     });
@@ -49,37 +52,33 @@ const login = (req, res) => {
 // ✅ Método para registrar un usuario
 const register = (req, res) => {
     console.log("🟢 Entrando al controlador de registro...");
-    
-    const { name, email, password, role } = req.body;
 
-    // 🔎 Verificación de datos
-    if (!name || !email || !password || !role) {
+    const { name, email, password, role, dni, direccion, barrio, telefono } = req.body;
+
+    // 🔎 Verificación de datos obligatorios
+    if (!name || !email || !password || !role || !dni || !direccion || !barrio || !telefono) {
         return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
-    // 🔒 Encriptar la contraseña
     const hashedPassword = bcrypt.hashSync(password, 8);
 
-    // 💾 Query de inserción
     const query = `
-        INSERT INTO users (name, email, password, role) 
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    db.query(query, [name, email, hashedPassword, role], (err, result) => {
+    db.query(query, [name, email, hashedPassword, role, dni, direccion, barrio, telefono], (err, result) => {
         if (err) {
             console.error("❌ Error al registrar el usuario:", err.message);
             return res.status(500).json({ message: 'Error al registrar el usuario' });
         }
-        
+
         console.log("🟢 Usuario registrado correctamente:", result);
-        
-        // 🚀 Generar token
+
         const token = jwt.sign({ id: result.insertId, role }, process.env.JWT_SECRET, {
-            expiresIn: 86400 // 24 horas
+            expiresIn: 86400
         });
 
-        // 🔑 Responder con el token
         res.status(201).json({
             message: 'Usuario registrado exitosamente',
             token: token,
@@ -87,7 +86,11 @@ const register = (req, res) => {
                 id: result.insertId,
                 name,
                 email,
-                role
+                role,
+                dni,
+                direccion,
+                barrio,
+                telefono
             }
         });
     });

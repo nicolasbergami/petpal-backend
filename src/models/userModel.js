@@ -15,13 +15,39 @@ const User = {
 
 
     create: (userData, callback) => {
-        const query = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)';
-        db.query(query, [userData.name, userData.email, userData.password, userData.role], callback);
+        const query = `
+        INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+        db.query(query, [
+            userData.name,
+            userData.email,
+            userData.password,
+            userData.role,
+            userData.dni,
+            userData.direccion,
+            userData.barrio,
+            userData.telefono
+        ], callback);
     },
 
     update: (id, userData, callback) => {
-        const query = 'UPDATE users SET name = ?, email = ?, password = ?, role = ? WHERE id = ?';
-        db.query(query, [userData.name, userData.email, userData.password, userData.role, id], callback);
+        const query = `
+        UPDATE users
+        SET name = ?, email = ?, password = ?, role = ?, dni = ?, direccion = ?, barrio = ?, telefono = ?
+        WHERE id = ?
+    `;
+        db.query(query, [
+            userData.name,
+            userData.email,
+            userData.password,
+            userData.role,
+            userData.dni,
+            userData.direccion,
+            userData.barrio,
+            userData.telefono,
+            id
+        ], callback);
     },
 
     delete: (id, callback) => {
