@@ -9,6 +9,11 @@ const Pet = {
     getById: (id, callback) => {
         db.query('SELECT * FROM pets WHERE id = ?', [id], callback);
     },
+    getByUserId: (userId, callback) => {
+        db.query('SELECT * FROM pets WHERE user_id = ?', [userId], callback);
+    },
+
+
 
     create: (petData, callback) => {
         const query = 'INSERT INTO pets (user_id, name, breed, age) VALUES (?, ?, ?, ?)';

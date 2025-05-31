@@ -56,10 +56,29 @@ const deletePet = (req, res) => {
     });
 };
 
+const getPetsByUser = (req, res) => {
+    const userId = req.user.id;
+    console.log("🔎 Buscando mascotas del usuario ID:", userId);
+
+    Pet.getByUserId(userId, (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: 'Error al obtener las mascotas del usuario' });
+        }
+        res.status(200).json(results);
+    });
+};
+
+
+
+
+
+
 module.exports = {
     getAllPets,
     getPetById,
     createPet,
     updatePet,
-    deletePet
+    deletePet,
+    getPetsByUser
+
 };
