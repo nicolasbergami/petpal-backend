@@ -15,15 +15,40 @@ const Pet = {
 
 
 
-    create: (petData, callback) => {
-        const query = 'INSERT INTO pets (user_id, name, breed, age) VALUES (?, ?, ?, ?)';
-        db.query(query, [petData.user_id, petData.name, petData.breed, petData.age], callback);
-    },
+   create: (petData, callback) => {
+    const query = `
+        INSERT INTO pets (user_id, name, breed, age, weight, pet_type, description) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    db.query(
+        query,
+        [petData.user_id, petData.name, petData.breed, petData.age, petData.weight, petData.pet_type, petData.description],
+        callback
+    );
+},
 
-    update: (id, petData, callback) => {
-        const query = 'UPDATE pets SET name = ?, breed = ?, age = ? WHERE id = ?';
-        db.query(query, [petData.name, petData.breed, petData.age, id], callback);
-    },
+
+   update: (id, petData, callback) => {
+    const query = `
+        UPDATE pets 
+        SET name = ?, breed = ?, age = ?, weight = ?, pet_type = ?, description = ?
+        WHERE id = ?
+    `;
+    db.query(
+        query,
+        [
+            petData.name,
+            petData.breed,
+            petData.age,
+            petData.weight,
+            petData.pet_type,
+            petData.description,
+            id
+        ],
+        callback
+    );
+},
+
 
     delete: (id, callback) => {
         db.query('DELETE FROM pets WHERE id = ?', [id], callback);

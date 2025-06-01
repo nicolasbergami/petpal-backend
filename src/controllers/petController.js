@@ -23,7 +23,17 @@ const getPetById = (req, res) => {
 };
 
 const createPet = (req, res) => {
-    const newPet = req.body;
+    const newPet = {
+        ...req.body,
+        user_id: req.user.id
+    };
+
+
+    // Validación rápida opcional
+    if (!newPet.name || !newPet.breed || !newPet.age || !newPet.user_id) {
+        return res.status(400).json({ message: 'Faltan datos obligatorios' });
+    }
+
     Pet.create(newPet, (err, results) => {
         if (err) {
             res.status(500).json({ message: 'Error al crear la mascota' });
@@ -32,6 +42,7 @@ const createPet = (req, res) => {
         }
     });
 };
+
 
 const updatePet = (req, res) => {
     const petId = req.params.id;
