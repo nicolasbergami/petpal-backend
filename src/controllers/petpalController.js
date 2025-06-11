@@ -25,15 +25,44 @@ const getPetpalById = (req, res) => {
 };
 
 const createPetpal = (req, res) => {
-    const newPetpal = req.body;
+    const userId = req.user.id; // ✅ Viene del token
+
+    const {
+        service_type,
+        price_per_hour,
+        price_per_day,
+        experience,
+        location,
+        pet_type,
+        size_accepted
+    } = req.body;
+
+    // Validación básica
+    if (!service_type || !experience || !location || !pet_type || !size_accepted) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para crear el perfil' });
+    }
+
+    const newPetpal = {
+        user_id: userId,
+        service_type,
+        price_per_hour,
+        price_per_day,
+        experience,
+        location,
+        pet_type,
+        size_accepted
+    };
+
     Petpal.create(newPetpal, (err, results) => {
         if (err) {
+            console.error("❌ Error al crear el perfil de Petpal:", err.message);
             res.status(500).json({ message: 'Error al crear el perfil de Petpal' });
         } else {
             res.status(201).json({ message: 'Perfil de Petpal creado correctamente', id: results.insertId });
         }
     });
 };
+
 
 const updatePetpal = (req, res) => {
     const petpalId = req.params.id;
