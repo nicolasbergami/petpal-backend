@@ -24,6 +24,18 @@ const getPetpalById = (req, res) => {
     });
 };
 
+const getPetpalsByUser = (req, res) => {
+    const userId = req.user.id;
+
+    Petpal.getByUserId(userId, (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: 'Error al obtener los perfiles de Petpal del usuario' });
+        }
+        res.status(200).json(results);
+    });
+};
+
+
 const createPetpal = (req, res) => {
     const userId = req.user.id; // ✅ Viene del token
 
@@ -163,5 +175,6 @@ module.exports = {
     updatePetpal,
     deletePetpal,
     searchPetpals,
+    getPetpalsByUser,
     searchByPetId
 };

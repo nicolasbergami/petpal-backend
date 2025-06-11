@@ -9,6 +9,11 @@ const Petpal = {
     getById: (id, callback) => {
         db.query('SELECT * FROM petpal_profiles WHERE id = ?', [id], callback);
     },
+    getByUserId: (userId, callback) => {
+        const query = 'SELECT * FROM petpal_profiles WHERE user_id = ?';
+        db.query(query, [userId], callback);
+    },
+
 
     create: (profileData, callback) => {
         const query = `INSERT INTO petpal_profiles (user_id, service_type, price_per_hour, price_per_day, experience, location, pet_type, size_accepted) 
