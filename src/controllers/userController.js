@@ -1,6 +1,7 @@
 // src/controllers/userController.js
 const User = require('../models/userModel');
 
+
 const getAllUsers = (req, res) => {
     User.getAll((err, results) => {
         if (err) {
@@ -40,17 +41,43 @@ const createUser = (req, res) => {
     });
 };
 
+const bcrypt = require('bcryptjs');
+
 const updateUser = (req, res) => {
-    const userId = req.params.id;
-    const userData = req.body;
-    User.update(userId, userData, (err) => {
-        if (err) {
-            res.status(500).json({ message: 'Error al actualizar el usuario' });
-        } else {
-            res.status(200).json({ message: 'Usuario actualizado correctamente' });
-        }
-    });
+  // 1️⃣ Tomamos el userId directamente del token
+  const userId = req.user.id;
+
+  // 2️⃣ Extraemos solo los campos que permitimos actualizar
+  const { name, email, password, dni, direccion, barrio, telefono } = req.body;
+
+  // 3️⃣ Validamos que nos esté llegando algo
+  if (!name || !email || !dni || !direccion || !barrio || !telefono) {
+    return res.status(400).json({ message: 'Faltan campos obligatorios' });
+  }
+
+  // 4️⃣ Si enviaron password, lo hasheamos; si no, lo dejamos undefined
+  const hashed = password ? bcrypt.hashSync(password, 8) : undefined;
+
+  const userData = {
+    name,
+    email,
+    password: hashed,
+    dni,
+    direccion,
+    barrio,
+    telefono
+  };
+
+  // 5️⃣ Llamamos al modelo
+  User.update(userId, userData, (err) => {
+    if (err) {
+      console.error('❌ Error al actualizar el usuario:', err.message);
+      return res.status(500).json({ message: 'Error al actualizar el usuario' });
+    }
+    res.status(200).json({ message: 'Usuario actualizado correctamente' });
+  });
 };
+
 
 const deleteUser = (req, res) => {
     const userId = req.params.id;
