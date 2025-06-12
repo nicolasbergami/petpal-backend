@@ -127,33 +127,37 @@ const searchByPetId = (req, res) => {
     const userId = req.user.id;
     const { location, service_type } = req.query;
 
-    console.log("🔍 Buscando mascota ID:", petId, "para el usuario:", req.user.id);
+    console.log("🔍 Buscando mascota ID:", petId, "para el usuario:", userId);
 
-    // 🔒 Verificamos que la mascota le pertenezca al usuario
-    const query = `SELECT pet_type, weight FROM pets WHERE id = ? AND user_id = ?`;
-    db.query(query, [petId, req.user.id], (err, results) => {
+    // Verificamos que la mascota le pertenezca al usuario
+    const query = 'SELECT pet_type, weight FROM pets WHERE id = ? AND user_id = ?';
+    db.query(query, [petId, userId], (err, petResults) => {
         if (err) {
             console.error("❌ Error en la consulta de mascota:", err.message);
             return res.status(500).json({ message: 'Error consultando la mascota' });
         }
+        console.log("ℹ️ Resultados de mascota:", petResults);
 
-        if (results.length === 0) {
+        if (petResults.length === 0) {
+            console.log("⚠️ Mascota no encontrada o no pertenece al usuario");
             return res.status(404).json({ message: 'Mascota no encontrada o no pertenece al usuario' });
         }
 
-        const { pet_type, weight: pet_weight } = results[0];
+        const { pet_type, weight: pet_weight } = petResults[0];
+        console.log("ℹ️ Tipo y peso de la mascota:", pet_type, pet_weight);
 
         let size = 'small';
         if (pet_weight > 8 && pet_weight <= 15) size = 'medium';
         if (pet_weight > 15) size = 'large';
+        console.log("ℹ️ Tamaño calculado:", size);
 
         const matchQuery = `
-            SELECT * FROM petpal_profiles
-            WHERE location = ?
-            AND service_type = ?
-            AND pet_type = ?
-            AND (size_accepted = ? OR size_accepted = 'all')
-        `;
+      SELECT * FROM petpal_profiles
+      WHERE location = ?
+        AND service_type = ?
+        AND pet_type = ?
+        AND (size_accepted = ? OR size_accepted = 'all')
+    `;
 
         db.query(matchQuery, [location, service_type, pet_type, size], (err, results) => {
             if (err) {
@@ -161,10 +165,14 @@ const searchByPetId = (req, res) => {
                 return res.status(500).json({ message: 'Error en la búsqueda de Petpals' });
             }
 
+            console.log("✅ Coincidencias encontradas:", results.length);
+            console.table(results);
+
             return res.status(200).json({ message: "Resultados encontrados", data: results });
         });
     });
 };
+
 
 
 
