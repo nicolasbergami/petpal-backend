@@ -14,6 +14,7 @@ router.post('/', verifyToken, isClient, reservationController.createReservation)
 router.put('/:id', verifyToken, isPetpal, reservationController.updateReservation);
 router.delete('/:id', verifyToken, isClient, reservationController.deleteReservation);
 router.post('/create', verifyToken, isClient, reservationController.createReservation);
+router.get('/detailed', verifyToken, getDetailedReservations);
 router.put('/:id/status', verifyToken, isPetpal, reservationController.updateReservationStatus);
 
 // ✅ Ruta que ignora el ID y usa el del token

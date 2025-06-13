@@ -110,6 +110,45 @@ const getReservationsByClient = (req, res) => {
         res.status(500).json({ message: 'Error interno del servidor.' });
     }
 };
+const getDetailedReservations = (req, res) => {
+  const userId = req.user.id;
+  const role   = req.user.role;
+
+  // Filtramos según el rol
+  const whereClause = role === 'client'
+    ? 'r.client_id = ?'
+    : 'r.petpal_id  = ?';
+
+  const sql = `
+    SELECT
+      r.id,
+      r.client_id,
+      u_client.name AS client_name,
+      r.petpal_id,
+      u_petpal.name AS petpal_name,
+      r.pet_id,
+      p.name AS pet_name,
+      pp.experience AS petpal_experience,
+      r.status,
+      r.date_start
+    FROM reservations r
+    JOIN users u_client   ON r.client_id = u_client.id
+    JOIN users u_petpal   ON r.petpal_id = u_petpal.id
+    JOIN pets p           ON r.pet_id = p.id
+    JOIN petpal_profiles pp ON r.petpal_id = pp.user_id
+    WHERE ${whereClause}
+    ORDER BY r.date_start DESC
+  `;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error('❌ Error al obtener reservas detalladas:', err);
+      return res.status(500).json({ message: 'Error al obtener reservas detalladas' });
+    }
+    res.status(200).json(results);
+  });
+};
+
 
 
 
