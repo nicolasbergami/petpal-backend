@@ -88,28 +88,83 @@ const updateReservationStatus = (req, res) => {
 const db = require('../config/db');
 
 const getReservationsByClient = (req, res) => {
-    console.log("🟢 Entrando al controlador de reservas del cliente...");
+  const clientId = req.user.id;
+  console.log("🟢 Cliente logueado (ID):", clientId);
 
-    const clientId = req.user.id;
-    console.log("🟢 Cliente logueado (ID):", clientId);
+  const sql = `
+    SELECT
+      r.id,
+      r.petpal_id,
+      u_petpal.name   AS petpal_name,
+      r.pet_id,
+      p.name          AS pet_name,
+      u_client.name   AS client_name,
+      r.date_start,
+      r.status
+    FROM reservations r
+    JOIN users u_client ON r.client_id = u_client.id
+    JOIN users u_petpal ON r.petpal_id = u_petpal.id
+    JOIN pets p         ON r.pet_id     = p.id
+    WHERE r.client_id = ?
+    ORDER BY r.date_start DESC
+  `;
 
-    // 🚀 Probar un SELECT muy simple
-    try {
-        console.log("🟢 Ejecutando SELECT de prueba...");
-        db.query('SELECT 1 + 1 AS solution', (err, results) => {
-            if (err) {
-                console.error("❌ Error en la consulta de prueba:", err.message);
-                res.status(500).json({ message: 'Error en la consulta de prueba' });
-            } else {
-                console.log("🟢 Resultados del SELECT de prueba:", results);
-                res.status(200).json({ message: "Consulta exitosa", data: results });
-            }
-        });
-    } catch (error) {
-        console.error("❌ Error crítico en el controlador:", error.message);
-        res.status(500).json({ message: 'Error interno del servidor.' });
+  db.query(sql, [clientId], (err, results) => {
+    if (err) {
+      console.error("❌ Error en la consulta SQL:", err.message);
+      return res.status(500).json({ message: 'Error en la consulta de reservas' });
     }
+
+    if (results.length === 0) {
+      console.log("🟢 No se encontraron reservas para este cliente.");
+      return res.status(404).json({ message: "No se encontraron reservas para este cliente." });
+    }
+
+    console.log("🟢 Reservas encontradas:", results);
+    res.status(200).json({ message: "Reservas encontradas", data: results });
+  });
 };
+
+const getReservationsForPetpal = (req, res) => {
+  const petpalId = req.user.id;
+  console.log("🟢 Petpal logueado (ID):", petpalId);
+
+  const sql = `
+    SELECT
+      r.id,
+      r.client_id,
+      u_client.name AS client_name,
+      r.pet_id,
+      p.name       AS pet_name,
+      u_petpal.name AS petpal_name,
+      pp.experience AS petpal_experience,
+      r.status,
+      r.date_start
+    FROM reservations r
+    JOIN users u_client   ON r.client_id = u_client.id
+    JOIN users u_petpal   ON r.petpal_id = u_petpal.id
+    JOIN pets p           ON r.pet_id = p.id
+    JOIN petpal_profiles pp ON r.petpal_id = pp.user_id
+    WHERE r.petpal_id = ?
+    ORDER BY r.date_start DESC
+  `;
+
+  db.query(sql, [petpalId], (err, results) => {
+    if (err) {
+      console.error("❌ Error al obtener reservas para petpal:", err.message);
+      return res.status(500).json({ message: 'Error al obtener reservas para petpal' });
+    }
+    if (results.length === 0) {
+      console.log("🟢 No hay reservas asignadas a este petpal.");
+      return res
+        .status(404)
+        .json({ message: "No se encontraron reservas para este petpal." });
+    }
+    console.log("🟢 Reservas para petpal encontradas:", results);
+    res.status(200).json({ message: "Reservas encontradas", data: results });
+  });
+};
+
 const getDetailedReservations = (req, res) => {
   const userId = req.user.id;
   const role   = req.user.role;
@@ -160,5 +215,6 @@ module.exports = {
     deleteReservation,
     updateReservationStatus,
     getReservationsByClient,
-    getDetailedReservations
+    getDetailedReservations,
+    getReservationsForPetpal
 };
