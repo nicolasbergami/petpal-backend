@@ -159,5 +159,6 @@ module.exports = {
     updateReservation,
     deleteReservation,
     updateReservationStatus,
-    getReservationsByClient
+    getReservationsByClient,
+    getDetailedReservations
 };
