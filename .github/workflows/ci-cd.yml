@@ -18,8 +18,9 @@ jobs:
         with:
           node-version: 18
 
-      - name: 📥 Instalar dependencias
-        run: npm install
+      - name: 📥 Instalar dependencias (sin bin-links)
+        run: npm install --no-bin-links
+
 
       - name: 🧪 Ejecutar Tests Unitarios
         run: npm run test:unit
