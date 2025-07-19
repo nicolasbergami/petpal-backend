@@ -1,0 +1,51 @@
+name: Petpal CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: 📦 Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 📥 Instalar dependencias
+        run: npm install
+
+      - name: 🧪 Ejecutar Tests Unitarios
+        run: npm run test:unit
+
+      - name: 📊 Generar cobertura
+        run: npm run coverage
+
+      - name: 🧪 Ejecutar Tests de Integración
+        run: npm run test:integration
+
+  deploy-qa:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Deploy automático a QA
+        run: echo "Simulación de deploy a QA - Aquí podrías hacer push a Railway QA u otro servicio"
+
+  deploy-prod:
+    needs: deploy-qa
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://petpal-backend-production.up.railway.app
+    steps:
+      - name: ✅ Aprobación manual requerida
+        run: echo "Esperando aprobación para Producción..."
+
+      - name: 🟢 Deploy a Producción
+        run: echo "Simulación de deploy a Producción (Railway ya lo hace automáticamente con GitHub)"
