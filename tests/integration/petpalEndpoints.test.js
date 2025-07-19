@@ -6,27 +6,31 @@ const app = require('../../src/app');
 
 describe('GET /api/petpals', () => {
   let token;
-  let db; // conexión promise
+  let db; // conexión promise para sembrar
 
   beforeAll(async () => {
-    // 1) Conectar al MySQL local de CI
+    // 1) Conectar al MySQL local de CI (o al provisto por env)
     db = await mysql.createConnection({
       host: process.env.DB_HOST || '127.0.0.1',
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || 'root',
       database: process.env.DB_DATABASE || 'ci_petpal',
-      port: process.env.DB_PORT || 3306
+      port: process.env.DB_PORT ? +process.env.DB_PORT : 3306
     });
 
-    // 2) Leer y ejecutar el script de semillas
-    const seedSql = fs.readFileSync(
-      path.join(__dirname, '../../scripts/seed-ci.sql'),
-      'utf8'
-    );
-    // El script puede contener varios statements separados por `;`
-    await db.query(seedSql);
+    // 2) Si existe, leer y ejecutar el script de semillas
+    const seedPath = path.join(__dirname, '../../scripts/seed-ci.sql');
+    if (fs.existsSync(seedPath)) {
+      const seedSql = fs.readFileSync(seedPath, 'utf8');
+      // dividir por ';' y ejecutar statement a statement evita problemas de multi-statement
+      for (const stmt of seedSql.split(';').map(s => s.trim()).filter(Boolean)) {
+        await db.query(stmt);
+      }
+    } else {
+      console.warn('⚠️ No se encontró scripts/seed-ci.sql, omitiendo semilla de CI');
+    }
 
-    // 3) Ahora hacemos login
+    // 3) Login y obtener token
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send({
@@ -49,10 +53,12 @@ describe('GET /api/petpals', () => {
   });
 
   afterAll(async () => {
-    // cerrar conexión tanto de la app como de MySQL
-    await new Promise((resolve) =>
-      require('../../src/config/db').end(() => resolve())
-    );
+    // cerrar la conexión interna de la app
+    const appDb = require('../../src/config/db');
+    if (appDb && typeof appDb.end === 'function') {
+      await new Promise(resolve => appDb.end(resolve));
+    }
+    // cerrar la conexión de CI
     if (db) {
       await db.end();
     }
