@@ -9,7 +9,7 @@ describe('GET /petpals', () => {
       .post('/auth/login')
       .send({
         email: 'test@example.com',
-        password: '123456'  // este debe coincidir con la contraseña real
+        password: '123456' // tiene que coincidir con la original antes del hash
       });
 
     token = loginRes.body.token;
