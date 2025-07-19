@@ -21,6 +21,8 @@ jobs:
       - name: 📥 Instalar dependencias (sin bin-links)
         run: npm install --no-bin-links
 
+      - name: 🔧 Fix jest permissions
+        run: chmod +x ./node_modules/.bin/jest
 
       - name: 🧪 Ejecutar Tests Unitarios
         run: npm run test:unit
