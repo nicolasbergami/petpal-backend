@@ -1,17 +1,23 @@
 const mysql = require('mysql2');
+require('iconv-lite').encodingExists('cesu8'); // ⚠️ Necesario para evitar el error en Railway
 const dotenv = require('dotenv');
 dotenv.config();
 
 const connection = mysql.createConnection({
+    /*//PARA SUBIR RAILWAY
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || process.env.DB_DATABASE,
-    port: process.env.DB_PORT,
-    charset: 'utf8mb4', // <-- agrega esto
-    authPlugins: {
-        mysql_clear_password: () => () => Buffer.from(process.env.DB_PASSWORD + '\0')
-    }
+    database: process.env.DB_NAME, // ✅ Aquí cambié a DB_NAME en vez de DB_DATABASE
+    port: process.env.DB_PORT       // ✅ Asegurarnos de que tome el puerto correctamente
+    */
+   //PARA LOCAL
+   host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE, // <- esto estaba mal como DB_NAME
+    port: process.env.DB_PORT
+
 });
 
 connection.connect((err) => {
