@@ -1,27 +1,56 @@
 trigger:
   branches:
     include:
-      - main  # o master, depende tu rama
+      - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
-steps:
-  - checkout: self
+variables:
+  backendPath: 'src'
+  imageName: 'petpal-backend'
+  tag: '$(Build.BuildId)'
 
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '18.x'
-    displayName: 'Instalar Node.js'
+stages:
+  - stage: Build
+    displayName: Build Backend Image
+    jobs:
+      - job: BuildImage
+        steps:
+          - task: Docker@2
+            displayName: Build Docker Image
+            inputs:
+              command: build
+              Dockerfile: 'Dockerfile'
+              tags: |
+                $(imageName):$(tag)
+              buildContext: '.'
 
-  - script: |
-      npm install
-    displayName: 'Instalar dependencias'
+  - stage: Test
+    displayName: Run Unit Tests
+    condition: succeeded()
+    jobs:
+      - job: RunTests
+        steps:
+          - script: |
+              echo "🔍 Acá se correrían los tests con Jest/Mocha"
+              # npm install
+              # npm test
+            displayName: Placeholder Test Stage
 
-  - script: |
-      echo "Por ahora no hay tests. Pronto los agregamos."
-    displayName: 'Tests (placeholder)'
+  - stage: DeployQA
+    condition: succeeded()
+    jobs:
+      - job: QADeploy
+        steps:
+          - script: echo "🚀 Aquí va el despliegue automático a QA (cuando esté configurado en Azure)"
+            displayName: QA Deploy Placeholder
 
-  - script: |
-      echo "Build finalizado correctamente"
-    displayName: 'Fin del Build'
+  - stage: DeployProd
+    dependsOn: DeployQA
+    condition: succeeded()
+    jobs:
+      - job: DeployToProduction
+        steps:
+          - script: echo "✅ Despliegue manual a Producción (Railway ya está configurado por push a main)"
+            displayName: Manual Approval Placeholder
