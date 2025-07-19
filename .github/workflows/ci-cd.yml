@@ -9,41 +9,112 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Levantamos un servicio MySQL local para las pruebas de integración
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
-      - name: 🔄 Checkout repositorio
+      - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 📦 Configurar Node.js
+      - name: 📦 Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
       - name: 📥 Instalar dependencias
-        run: npm install
+        run: npm install --no-bin-links
 
-      - name: 🔧 Fix jest permissions
+      - name: 🔧 Fix jest perms
         run: chmod +x ./node_modules/.bin/jest
 
-      - name: 🛠️ Crear archivo .env apuntando a Railway
+      - name: 🔧 Esperar MySQL listo
         run: |
-          # Railway te da una URL completa en MYSQL_PUBLIC_URL
-          echo "DATABASE_URL=${{ secrets.MYSQL_PUBLIC_URL }}" > .env
+          for i in {1..10}; do
+            mysqladmin ping -h127.0.0.1 -uroot -proot && break
+            echo "Waiting for MySQL..." && sleep 3
+          done
 
-      - name: 🧪 Ejecutar Tests Unitarios
+      - name: 🛠️ Crear .env apuntando al MySQL de CI
+        run: |
+          cat <<EOF > .env
+          DB_HOST=127.0.0.1
+          DB_USER=root
+          DB_PASSWORD=root
+          DB_DATABASE=testdb
+          DB_PORT=3306
+          JWT_SECRET=testing-secret
+          EOF
+
+      - name: 🔄 Crear esquema y seed
+        run: |
+          mysql -h127.0.0.1 -uroot -proot testdb <<SQL
+          -- Creamos tabla users simplificada
+          CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100),
+            email VARCHAR(100) UNIQUE,
+            password VARCHAR(255),
+            role VARCHAR(20),
+            dni VARCHAR(20),
+            direccion VARCHAR(255),
+            barrio VARCHAR(100),
+            telefono VARCHAR(30)
+          );
+          -- Insertamos usuario de prueba (password: "123456")
+          INSERT INTO users (name,email,password,role,dni,direccion,barrio,telefono)
+          VALUES (
+            'Test User',
+            'test@example.com',
+            '\$2b\$08\$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO', -- hash de 123456
+            'petpal',
+            '12345678','Calle Falsa 123','Nueva Córdoba','3511234567'
+          )
+          ON DUPLICATE KEY UPDATE email=email;
+          -- Y algún petpal básico para /petpals
+          CREATE TABLE IF NOT EXISTS petpals (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            service_type VARCHAR(50),
+            price_per_hour DECIMAL(6,2),
+            experience TEXT,
+            location VARCHAR(100),
+            pet_type VARCHAR(20),
+            size_accepted VARCHAR(20),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+          );
+          INSERT INTO petpals (user_id,service_type,price_per_hour,experience,location,pet_type,size_accepted)
+          VALUES (1,'dog walker',15.00,'Experiencia demo','Nueva Córdoba','dog','all')
+          ON DUPLICATE KEY UPDATE user_id=user_id;
+          SQL
+
+      - name: 🧪 Tests unitarios
         run: npm run test:unit
 
-      - name: 📊 Generar cobertura
+      - name: 📊 Cobertura
         run: npm run coverage
 
-      - name: 🧪 Ejecutar Tests de Integración
+      - name: 🧪 Tests de integración
         run: npm run test:integration
 
   deploy-qa:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Deploy automático a QA
-        run: echo "Simulación de deploy a QA - Aquí podrías hacer push a Railway QA u otro servicio"
+      - name: 🚀 Deploy a QA
+        run: echo "Aquí harías el push a Railway QA..."
 
   deploy-prod:
     needs: deploy-qa
@@ -52,8 +123,7 @@ jobs:
       name: production
       url: https://petpal-backend-production.up.railway.app
     steps:
-      - name: ✅ Aprobación manual requerida
-        run: echo "Esperando aprobación para Producción..."
-
-      - name: 🟢 Deploy a Producción
-        run: echo "Simulación de deploy a Producción (Railway ya lo hace automáticamente con GitHub)"
+      - name: ✅ Esperar aprobación
+        run: echo "Esperando aprobación manual..."
+      - name: 🟢 Deploy a PROD
+        run: echo "Railway deploy automático tras push"
