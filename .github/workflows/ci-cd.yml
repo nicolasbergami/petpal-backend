@@ -18,22 +18,16 @@ jobs:
         with:
           node-version: 18
 
-      - name: 📥 Instalar dependencias (sin bin-links)
-        run: npm install --no-bin-links
+      - name: 📥 Instalar dependencias
+        run: npm install
 
       - name: 🔧 Fix jest permissions
         run: chmod +x ./node_modules/.bin/jest
 
-      - name: 🛠️ Crear archivo .env desde secrets
+      - name: 🛠️ Crear archivo .env apuntando a Railway
         run: |
-         echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-         echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-         echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-         echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-         echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-         echo "DB_DATABASE=${{ secrets.DB_NAME }}" >> .env  
-
-
+          # Railway te da una URL completa en MYSQL_PUBLIC_URL
+          echo "DATABASE_URL=${{ secrets.MYSQL_PUBLIC_URL }}" > .env
 
       - name: 🧪 Ejecutar Tests Unitarios
         run: npm run test:unit
