@@ -1,22 +1,14 @@
 const mysql = require('mysql2');
+require('iconv-lite').encodingExists('cesu8'); // ✅ Fix para CI/CD
 const dotenv = require('dotenv');
 dotenv.config();
 
 const connection = mysql.createConnection({
-    /*//PARA SUBIR RAILWAY
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME, // ✅ Aquí cambié a DB_NAME en vez de DB_DATABASE
-    port: process.env.DB_PORT       // ✅ Asegurarnos de que tome el puerto correctamente
-    */
-   //PARA LOCAL
-   host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE, // <- esto estaba mal como DB_NAME
+    database: process.env.DB_NAME, // ✅ Unificado para usar el nombre correcto
     port: process.env.DB_PORT
-
 });
 
 connection.connect((err) => {
@@ -28,4 +20,3 @@ connection.connect((err) => {
 });
 
 module.exports = connection;
-
