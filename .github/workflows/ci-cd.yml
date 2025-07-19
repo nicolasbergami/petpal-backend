@@ -1,3 +1,4 @@
+# .github/workflows/ci-cd.yml
 name: Petpal CI/CD Pipeline
 
 on:
@@ -10,7 +11,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Levantamos un servicio MySQL local para las pruebas de integración
     services:
       mysql:
         image: mysql:8.0
@@ -37,7 +37,7 @@ jobs:
       - name: 📥 Instalar dependencias
         run: npm install --no-bin-links
 
-      - name: 🔧 Fix jest perms
+      - name: 🔧 Fix jest permissions
         run: chmod +x ./node_modules/.bin/jest
 
       - name: 🔧 Esperar MySQL listo
@@ -47,7 +47,7 @@ jobs:
             echo "Waiting for MySQL..." && sleep 3
           done
 
-      - name: 🛠️ Crear .env apuntando al MySQL de CI
+      - name: 🛠️ Crear .env para CI
         run: |
           cat <<EOF > .env
           DB_HOST=127.0.0.1
@@ -61,7 +61,7 @@ jobs:
       - name: 🔄 Crear esquema y seed
         run: |
           mysql -h127.0.0.1 -uroot -proot testdb <<SQL
-          -- Creamos tabla users simplificada
+          -- Tabla de usuarios
           CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(100),
@@ -73,17 +73,18 @@ jobs:
             barrio VARCHAR(100),
             telefono VARCHAR(30)
           );
-          -- Insertamos usuario de prueba (password: "123456")
+          -- Inserto Test User (password = "123456")
           INSERT INTO users (name,email,password,role,dni,direccion,barrio,telefono)
           VALUES (
             'Test User',
             'test@example.com',
-            '\$2b\$08\$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO', -- hash de 123456
+            '\$2b\$08\$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO',
             'petpal',
             '12345678','Calle Falsa 123','Nueva Córdoba','3511234567'
           )
           ON DUPLICATE KEY UPDATE email=email;
-          -- Y algún petpal básico para /petpals
+
+          -- Tabla de perfiles petpal
           CREATE TABLE IF NOT EXISTS petpals (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT,
@@ -95,6 +96,7 @@ jobs:
             size_accepted VARCHAR(20),
             FOREIGN KEY(user_id) REFERENCES users(id)
           );
+          -- Inserto un perfil demo
           INSERT INTO petpals (user_id,service_type,price_per_hour,experience,location,pet_type,size_accepted)
           VALUES (1,'dog walker',15.00,'Experiencia demo','Nueva Córdoba','dog','all')
           ON DUPLICATE KEY UPDATE user_id=user_id;
