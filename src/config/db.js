@@ -1,5 +1,4 @@
 const mysql = require('mysql2');
-require('iconv-lite').encodingExists('cesu8'); // ✅ Fix para CI/CD
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -7,8 +6,12 @@ const connection = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME, // ✅ Unificado para usar el nombre correcto
-    port: process.env.DB_PORT
+    database: process.env.DB_NAME || process.env.DB_DATABASE,
+    port: process.env.DB_PORT,
+    charset: 'utf8mb4', // <-- agrega esto
+    authPlugins: {
+        mysql_clear_password: () => () => Buffer.from(process.env.DB_PASSWORD + '\0')
+    }
 });
 
 connection.connect((err) => {
@@ -20,3 +23,4 @@ connection.connect((err) => {
 });
 
 module.exports = connection;
+
