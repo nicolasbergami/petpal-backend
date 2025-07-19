@@ -1,0 +1,27 @@
+trigger:
+  branches:
+    include:
+      - main  # o master, depende tu rama
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '18.x'
+    displayName: 'Instalar Node.js'
+
+  - script: |
+      npm install
+    displayName: 'Instalar dependencias'
+
+  - script: |
+      echo "Por ahora no hay tests. Pronto los agregamos."
+    displayName: 'Tests (placeholder)'
+
+  - script: |
+      echo "Build finalizado correctamente"
+    displayName: 'Fin del Build'
