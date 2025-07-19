@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../../src/app');
+const connection = require('../../src/config/db'); // tu conexión MySQL
 
 describe('GET /petpals', () => {
   let token;
@@ -9,7 +10,7 @@ describe('GET /petpals', () => {
       .post('/auth/login')
       .send({
         email: 'test@example.com',
-        password: '123456' // tiene que coincidir con la original antes del hash
+        password: '12345678' // coincide con la original antes del hash
       });
 
     token = loginRes.body.token;
@@ -23,5 +24,12 @@ describe('GET /petpals', () => {
 
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  afterAll(async () => {
+    // Cerrar la conexión para que Jest no deje handles abiertos
+    await new Promise((resolve, reject) => {
+      connection.end(err => err ? reject(err) : resolve());
+    });
   });
 });
