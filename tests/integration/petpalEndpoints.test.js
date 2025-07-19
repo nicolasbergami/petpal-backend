@@ -1,25 +1,26 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const connection = require('../../src/config/db'); // tu conexión MySQL
+const connection = require('../../src/config/db');
 
-describe('GET /petpals', () => {
+describe('GET /api/petpals', () => {
   let token;
 
   beforeAll(async () => {
     const loginRes = await request(app)
-      .post('/auth/login')
+      .post('/api/auth/login')     // ← prefijo /api
       .send({
         email: 'test@example.com',
-        password: '12345678' // coincide con la original antes del hash
+        password: '12345678'
       });
 
+    expect(loginRes.statusCode).toBe(200);
     token = loginRes.body.token;
     expect(token).toBeDefined();
   });
 
   it('Debería devolver una lista de petpals con status 200', async () => {
     const res = await request(app)
-      .get('/petpals')
+      .get('/api/petpals')         // ← prefijo /api
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.statusCode).toBe(200);
@@ -27,9 +28,9 @@ describe('GET /petpals', () => {
   });
 
   afterAll(async () => {
-    // Cerrar la conexión para que Jest no deje handles abiertos
     await new Promise((resolve, reject) => {
       connection.end(err => err ? reject(err) : resolve());
     });
   });
 });
+
