@@ -6,12 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     services:
       mysql:
         image: mysql:8.0
@@ -70,17 +68,31 @@ jobs:
       - name: 🧪 Ejecutar Tests de Integración
         run: npm run test:integration
 
+
   deploy-qa:
     needs: build-and-test
     runs-on: ubuntu-latest
+
     steps:
-      - name: 🔄 Checkout repositorio
+      - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 🚀 Deploy a QA (placeholder)
+      - name: 🚀 Login Railway CLI
         run: |
-          echo "Aquí harías el deploy a tu entorno QA en Railway"
-          # e.g. npx @railway/cli up . --detach --environment qa
+          npx @railway/cli login --apiKey ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: 🔗 Enlazar proyecto en Railway (QA)
+        run: |
+          npx @railway/cli link \
+            --projectId ${{ secrets.RAILWAY_PROJECT_ID }} \
+            --environment production   # aquí solo hay producción en Railway
+
+      - name: 🌱 Deploy a QA (env “production” en Railway)
+        run: |
+          npx @railway/cli up . \
+            --environment production \
+            --detach
+
 
   deploy-prod:
     needs: deploy-qa
@@ -91,12 +103,20 @@ jobs:
       url: https://petpal-backend-production.up.railway.app
 
     steps:
-      - name: 🔄 Checkout código
+      - name: 🔄 Checkout
         uses: actions/checkout@v3
+
+      - name: 🚀 Login Railway CLI
+        run: |
+          npx @railway/cli login --apiKey ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: ✅ Esperar aprobación manual
+        uses: peter-evans/wait-for-approval@v1
+        with:
+          reviewers: nicolasbergami,santiaguero7   # los que configuraste en GitHub Environments
 
       - name: 🟢 Deploy a Producción en Railway
         run: |
           npx @railway/cli up . \
-            --service petpal-backend \
             --environment production \
             --detach
