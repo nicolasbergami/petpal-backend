@@ -91,9 +91,12 @@ jobs:
       url: https://petpal-backend-production.up.railway.app
 
     steps:
-      - name: 🔄 Checkout repositorio
+      - name: 🔄 Checkout código
         uses: actions/checkout@v3
 
-      - name: 🟢 Deploy a Producción
-        # El CLI detecta automáticamente RAILWAY_TOKEN
-        run: npx @railway/cli up . --detach --environment production
+      - name: 🟢 Deploy a Producción en Railway
+        run: |
+          npx @railway/cli up . \
+            --service petpal-backend \
+            --environment production \
+            --detach
