@@ -7,7 +7,6 @@ on:
     branches: [ main ]
 
 env:
-  # tu token Railway puesto en GitHub Secrets con el nombre RAILWAY_TOKEN
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
 jobs:
@@ -80,13 +79,12 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 🚧 Dry‑run deploy
-        run: echo "✅ Build OK — aquí podrías desplegar a un entorno staging si lo tuvieras"
+        run: echo "✅ Build OK — aquí podrías desplegar a staging si lo tuvieras"
 
   deploy-prod:
     needs: deploy-dry-run
     runs-on: ubuntu-latest
 
-    # Protegemos este job con el environment "production"
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
@@ -97,13 +95,11 @@ jobs:
 
       - name: 🚀 Login Railway CLI
         run: |
-          # instalamos el CLI oficial
           npm install -g @railway/cli
-          # login con API key
           railway login --apiKey $RAILWAY_TOKEN
 
       - name: ✅ Esperar aprobación
-        uses: peter-evans/wait-for-approval@v2
+        uses: peter-evans/wait-for-approval@v1
         with:
           reviewers: |
             nicolasbergami
@@ -111,5 +107,4 @@ jobs:
 
       - name: 🟢 Deploy a Producción
         run: |
-          # No hace falta pasar --environment porque el job ya está ligado al env "production"
           railway up . --detach
