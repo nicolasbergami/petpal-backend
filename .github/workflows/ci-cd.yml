@@ -75,10 +75,7 @@ jobs:
      steps:
        - name: 🔄 Checkout
          uses: actions/checkout@v3
-       - name: 🚀 Login Railway CLI
-         run: |
-          npm install -g railway
-          railway login --apiToken ${{ secrets.RAILWAY_TOKEN }}
+
        - name: 🚀 Login Railway CLI
          run: |
           # usamos directamente npx con el nuevo paquete
