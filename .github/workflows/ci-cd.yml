@@ -52,6 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Export Railway Token
+        run: echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }}" >> $GITHUB_ENV
       - name: Deploy to Railway (QA)
         run: |
           npx @railway/cli up . -- \
@@ -68,9 +70,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Esperar aprobación manual
-        uses: peter-evans/wait-for-approval@v1
+        uses: trstringer/manual-approval@v1
         with:
-          reviewers: nicolasbergami,santiaguero7
+          secret: ${{ secrets.GITHUB_TOKEN }}
+      - name: Export Railway Token
+        run: echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }}" >> $GITHUB_ENV
       - name: Deploy to Railway (PROD)
         run: |
           npx @railway/cli up . -- \
