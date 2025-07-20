@@ -46,3 +46,71 @@ jobs:
       - run: npm run test:unit
       - run: npm run coverage
       - run: npm run test:integration
+
+  qa-validation:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validación de Calidad (Placeholder)
+        run: |
+          echo "Aquí se ejecutarían las pruebas de QA, despliegues a entorno de staging, etc."
+          echo "Por ahora, este paso simplemente completa con éxito."
+          # Aquí podrías añadir un 'Deploy to QA Environment' si lo necesitas en el futuro.
+
+  deploy-prod:
+    needs: qa-validation # Este job esperará a que el QA Validation (o su placeholder) termine.
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://petpal-backend-production.up.railway.app # URL de tu backend en Railway
+    permissions:
+      issues: write # Necesario para la aprobación manual
+      statuses: write # Necesario para que GitHub Actions pueda actualizar el estado de la verificación (check) en GitHub
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Esperar aprobación manual para despliegue a PRODUCCIÓN
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: nicolasbergami,santiaguero7 # Reemplaza con tus nombres de usuario
+          minimum-approvals: 1
+          issue-title: "Aprobación manual requerida para deploy a producción de Petpal Backend"
+
+      - name: Instalar cliente MySQL (para migraciones/seeding)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      - name: Ejecutar Script de Base de Datos (ej. Migraciones/Seeding en Producción)
+        run: |
+          mysql -h ${{ secrets.DB_HOST }} \
+                -P ${{ secrets.DB_PORT }} \
+                -u ${{ secrets.DB_USER }} \
+                -p"${{ secrets.DB_PASSWORD }}" \
+                ${{ secrets.DB_NAME }} < scripts/seed-ci.sql
+        env: # Estas variables de entorno son para el script de migración, no para el despliegue de Railway
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_NAME }}
+
+      # ESTE ES EL PASO CLAVE para que Railway "detecte" el despliegue automático
+      # DESPUÉS de la aprobación y las migraciones.
+      # Simula la finalización de un CI para que Railway inicie su despliegue.
+      - name: Enviar señal de despliegue a Railway
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // Usa el API de GitHub para actualizar el estado de la verificación (check)
+            // Esto es lo que Railway (con "Wait for CI" desactivado) está buscando.
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: 'Despliegue a producción aprobado y migraciones aplicadas.',
+              context: 'continuous-integration/github-actions/deploy-prod' // El nombre del check que Railway buscará
+            });
