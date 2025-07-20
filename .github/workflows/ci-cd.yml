@@ -23,7 +23,7 @@ jobs:
         ports: ["3306:3306"]
         options: >-
           --health-cmd="mysql -uroot -proot -e 'SELECT 1'" --health-interval=10s --health-retries=15 --health-timeout=5s
-        # QUITAMOS POR COMPLETO LA SECCIÓN VOLUMES DE AQUÍ, YA QUE LA VAMOS A EJECUTAR MANUALMENTE
+        # QUITAMOS POR COMPLETO LA SECCIÓN VOLUMES DE AQUÍ
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -42,8 +42,6 @@ jobs:
       - name: Wait for MySQL
         run: |
           echo "Waiting for MySQL with root user (container's healthcheck should pass first)..."
-          # Este paso ya no es tan crítico si el healthcheck del servicio funciona,
-          # pero sirve como una capa de seguridad y para asegurar que 'mysqladmin' esté disponible.
           for i in {1..30}; do
             mysqladmin ping -h127.0.0.1 -uroot -proot && break
             echo "MySQL not ready yet (root user), waiting..."
@@ -53,29 +51,88 @@ jobs:
 
       - name: Create test user in MySQL
         run: |
-          # Ahora ejecutamos el script init-testdb.sql manualmente con el usuario root
           mysql -h127.0.0.1 -uroot -proot < ./scripts/init-testdb.sql
         env:
-          MYSQL_ROOT_PASSWORD: root # Asegura que la variable esté disponible para este paso si es necesario
+          MYSQL_ROOT_PASSWORD: root
 
       - name: Create .env for local tests
         run: |
           cat > .env <<EOF
           DB_HOST=127.0.0.1
-          DB_USER=testuser # Volvemos a usar testuser
-          DB_PASSWORD=testpassword # Volvemos a usar testpassword
+          DB_USER=testuser
+          DB_PASSWORD=testpassword
           DB_DATABASE=testdb
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
 
       - name: Load database schema for tests
-        # Usamos testuser para cargar el esquema
         run: mysql -h127.0.0.1 -utestuser -ptestpassword testdb < ./scripts/schema-ci-testdb.sql
+
+      # -------------------------------------------------------------------
+      # ¡¡¡NUEVO BLOQUE DE DEPURACIÓN CRÍTICO!!!
+      # -------------------------------------------------------------------
+      - name: SUPER DEBUG - Jest Integration Tests Execution
+        id: super_debug_jest
+        run: |
+          echo "=========================================================="
+          echo "===== STARTING SUPER DEBUG FOR JEST INTEGRATION TESTS ===="
+          echo "=========================================================="
+
+          echo "1. Current working directory: $(pwd)"
+          echo "2. Listing contents of project root (should contain package.json, jest.integration.config.js):"
+          ls -la . || true
+
+          echo "3. Listing contents of 'tests/' directory (should contain 'integration' folder and test files):"
+          ls -la tests/ || true
+          ls -la tests/integration/ || true
+
+          echo "4. Showing content of jest.integration.config.js:"
+          cat jest.integration.config.js || true
+
+          echo "5. Showing content of package.json script for test:integration:"
+          grep "test:integration" package.json || true
+
+          echo "6. Running Jest Integration Tests with extensive logging to a file..."
+          # Ejecutamos Jest y redirigimos la salida estándar y de error a un archivo
+          # Usamos 'set -e' para asegurar que si Jest crashea, el script lo detecte.
+          # Usamos '|| true' para que el paso no falle y podamos ver la salida del archivo de log
+          # aunque Jest crashe.
+          set +e # Deshabilitar fail-fast para capturar la salida de Jest
+          npm run test:integration > jest-integration-output.log 2>&1
+          JEST_EXIT_CODE=$?
+          set -e # Volver a habilitar fail-fast
+
+          echo "Jest exited with code: $JEST_EXIT_CODE"
+
+          echo "7. Displaying content of jest-integration-output.log:"
+          cat jest-integration-output.log || true
+
+          echo "8. Listing files in current directory AFTER Jest run (checking for junit-integration.xml):"
+          ls -la . || true
+
+          echo "9. Checking if junit-integration.xml was created:"
+          if [ -f "junit-integration.xml" ]; then
+            echo "🎉 junit-integration.xml WAS created! Displaying its content:"
+            cat junit-integration.xml || true
+          else
+            echo "❌ junit-integration.xml WAS NOT created."
+          fi
+
+          echo "=========================================================="
+          echo "====== ENDING SUPER DEBUG FOR JEST INTEGRATION TESTS ====="
+          echo "=========================================================="
+
+          # Si Jest falló (JEST_EXIT_CODE no es 0), queremos que este paso lo marque como fallido eventualmente.
+          # Pero para depuración inicial, lo dejamos pasar con 'true' para ver los logs.
+          # Una vez resuelto, podrías quitar el '|| true' aquí si quieres que el paso falle.
+          exit $JEST_EXIT_CODE # Este comando hará que el paso termine con el código de salida de Jest.
+        continue-on-error: true # Mantenerlo true para que podamos ver la salida completa del debug
+      # -------------------------------------------------------------------
 
       - name: Run Unit Tests
         run: npm run test:unit
-        continue-on-error: false
+        continue-on-error: false # Esto es para los unit tests, debería funcionar
 
       - name: Publish Unit Test Results
         uses: dorny/test-reporter@v1
@@ -85,9 +142,6 @@ jobs:
           path: junit.xml
           reporter: jest-junit
 
-      - name: Run Integration Tests (Local)
-        run: npm run test:integration || { echo "Integration tests failed"; exit 0; } 
-        
       - name: Publish Local Integration Test Results
         uses: dorny/test-reporter@v1
         if: always()
@@ -95,9 +149,7 @@ jobs:
           name: Local Integration Tests Report
           path: junit-integration.xml
           reporter: jest-junit
-
-  # ... (el resto del workflow para QA y PROD)
-
+# ... (el resto del workflow)
   deploy-to-qa-and-test:
     needs: build-and-test-local
     runs-on: ubuntu-latest
