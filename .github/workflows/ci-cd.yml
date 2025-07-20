@@ -18,16 +18,12 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root # De vuelta a root con contraseña 'root'
+          MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: testdb
         ports: ["3306:3306"]
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -proot" # Ping con root
-          --health-interval=10s
-          --health-retries=3
-        # --- ELIMINA TEMPORALMENTE LA SECCIÓN VOLUMES PARA DEPURAR ---
-        # volumes:
-        #   - ./scripts/init-testdb.sql:/docker-entrypoint-initdb.d/init.sql
+        options: >- # Mantén el >-
+          --health-cmd="mysqladmin ping -h localhost -proot" --health-interval=10s --health-retries=3 # <--- ¡AHORA TODO EN UNA LÍNEA Y SIN COMENTARIOS INTERNOS!
+        # NO AGREGUES VOLUMES AÚN HASTA QUE ESTO FUNCIONE
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -46,7 +42,6 @@ jobs:
       - name: Wait for MySQL
         run: |
           for i in {1..20}; do
-            # Vuelve a usar root para ping
             mysqladmin ping -h127.0.0.1 -uroot -proot && break
             sleep 2
           done
@@ -55,15 +50,14 @@ jobs:
         run: |
           cat > .env <<EOF
           DB_HOST=127.0.0.1
-          DB_USER=root # <--- Vuelve a root
-          DB_PASSWORD=root # <--- Vuelve a root
+          DB_USER=root
+          DB_PASSWORD=root
           DB_DATABASE=testdb
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
 
       - name: Load database schema for tests
-        # Vuelve a usar root para cargar el esquema
         run: mysql -h127.0.0.1 -uroot -proot testdb < ./scripts/schema-ci-testdb.sql
 
       - name: Run Unit Tests
@@ -88,14 +82,9 @@ jobs:
         with:
           name: Local Integration Tests Report
           path: junit-integration.xml
-          reporter: jest-integration.xml # Ojo: esto debe ser 'jest-junit'
-          # Aclaro: si usaste jest-integration.xml, cámbialo a jest-junit
-          # path: junit-integration.xml
-          # reporter: jest-junit
+          reporter: jest-junit
 
-   
-
-    # ... (el resto del workflow deploy-to-qa-and-test y deploy-to-prod se mantiene igual)
+  # ... el resto del workflow (deploy-to-qa-and-test, deploy-to-prod)
 
   deploy-to-qa-and-test:
     needs: build-and-test-local
