@@ -1,10 +1,4 @@
--- 1) Desactivar FK para truncar
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE petpal_profiles;
-TRUNCATE TABLE users;
-SET FOREIGN_KEY_CHECKS = 1;
-
--- 2) Crear tablas si faltan
+-- 1) Crear tablas si faltan
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
@@ -34,12 +28,18 @@ CREATE TABLE IF NOT EXISTS petpal_profiles (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 2) Desactivar FK y truncar para limpiar
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE petpal_profiles;
+TRUNCATE TABLE users;
+SET FOREIGN_KEY_CHECKS = 1;
+
 -- 3) Semillas
 INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono)
 VALUES (
   'Test User',
   'test@example.com',
-  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',
+  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',  -- bcrypt("123456")
   'petpal',
   '12345678',
   'Calle Falsa 123',
