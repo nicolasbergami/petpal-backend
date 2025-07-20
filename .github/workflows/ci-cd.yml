@@ -72,29 +72,29 @@ jobs:
           minimum-approvals: 1
           issue-title: "Aprobación manual requerida para deploy a producción"
       
-      # --- PASOS DE DEPURACIÓN AÑADIDOS AQUÍ ---
-      - name: Debug: Listar archivos en el directorio actual
+      # --- PASO DE DEPURACIÓN ÚNICO ---
+      - name: Ejecutar comandos de depuración
         run: |
+          echo "--- Debug: Listar archivos en el directorio actual ---"
           ls -la
           pwd
+          echo "" # Línea en blanco para claridad
 
-      - name: Debug: Contenido de railway.json
-        run: |
+          echo "--- Debug: Contenido de railway.json ---"
           cat railway.json || echo "railway.json no encontrado o error de lectura"
+          echo ""
 
-      - name: Debug: Verificar variables de entorno de Railway
-        run: |
+          echo "--- Debug: Verificar variables de entorno de Railway ---"
           echo "RAILWAY_TOKEN_SET: ${{ contains(env.RAILWAY_TOKEN, '***') }}"
-          # Nota: 'b1639e5d' es solo el inicio del ID, no es el ID completo.
-          # Esto solo verifica que la variable no esté vacía y empiece con algo.
           echo "RAILWAY_PROJECT_SET: ${{ contains(env.RAILWAY_PROJECT, 'b1639e5d') }}" 
           echo "RAILWAY_SERVICE_PASSED: petpal-backend"
           echo "RAILWAY_ENVIRONMENT_PASSED: production"
-      # --- FIN DE PASOS DE DEPURACIÓN ---
+          echo ""
+      # --- FIN DE PASO DE DEPURACIÓN ÚNICO ---
 
       - name: Desplegar en Railway (PRODUCCIÓN REAL)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }} # Usa el secreto RAILWAY_PROJECT_ID
+          RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
         run: |
           npx @railway/cli@latest up . --service petpal-backend --environment production --detach
