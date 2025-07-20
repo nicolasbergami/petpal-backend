@@ -1,6 +1,10 @@
--- scripts/seed‑ci.sql
+-- 1) Desactivar FK para truncar
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE petpal_profiles;
+TRUNCATE TABLE users;
+SET FOREIGN_KEY_CHECKS = 1;
 
--- 1) Crear tablas si aún no existen
+-- 2) Crear tablas si faltan
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
@@ -10,7 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
   dni VARCHAR(20),
   direccion VARCHAR(200),
   barrio VARCHAR(100),
-  telefono VARCHAR(20)
+  telefono VARCHAR(20),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS petpal_profiles (
@@ -23,41 +29,43 @@ CREATE TABLE IF NOT EXISTS petpal_profiles (
   location VARCHAR(100),
   pet_type VARCHAR(20),
   size_accepted VARCHAR(10),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- 2) Desactivar FK, truncar y volver a activar
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE petpal_profiles;
-TRUNCATE TABLE users;
-SET FOREIGN_KEY_CHECKS = 1;
-
 -- 3) Semillas
-INSERT INTO users 
-  (name, email, password, role, dni, direccion, barrio, telefono)
-VALUES 
-  (
-    'Test User',
-    'test@example.com',
-    '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6', -- bcrypt("123456")
-    'petpal',
-    '12345678',
-    'Calle Falsa 123',
-    'Nueva Córdoba',
-    '3511234567'
-  )
+INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono)
+VALUES (
+  'Test User',
+  'test@example.com',
+  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',
+  'petpal',
+  '12345678',
+  'Calle Falsa 123',
+  'Nueva Córdoba',
+  '3511234567'
+)
 ON DUPLICATE KEY UPDATE email = email;
 
-INSERT INTO petpal_profiles 
-  (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
-VALUES 
-  (
-    (SELECT id FROM users WHERE email = 'test@example.com'),
-    'dog walker',
-    15.00,
-    '2 años de experiencia',
-    'Nueva Córdoba',
-    'dog',
-    'all'
+INSERT INTO petpal_profiles (
+    user_id,
+    service_type,
+    price_per_hour,
+    price_per_day,
+    experience,
+    location,
+    pet_type,
+    size_accepted
   )
+VALUES (
+  (SELECT id FROM users WHERE email='test@example.com'),
+  'dog walker',
+  15.00,
+  NULL,
+  '2 años de experiencia',
+  'Nueva Córdoba',
+  'dog',
+  'all'
+)
 ON DUPLICATE KEY UPDATE user_id = user_id;

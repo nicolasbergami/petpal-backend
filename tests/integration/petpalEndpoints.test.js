@@ -40,7 +40,7 @@ describe('GET /api/petpals', () => {
     // 4) Crear un petpal básico para la ruta GET /petpals
     // (usa directamente SQL porque no tenemos endpoint para esto)
     await db.query(
-      `INSERT INTO petpals (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
+      `INSERT INTO petpal_profiles (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
        VALUES (
          (SELECT id FROM users WHERE email = 'test@example.com'),
          'dog walker', 15.00, '2 años','Nueva Córdoba','dog','all'
