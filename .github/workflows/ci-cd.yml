@@ -57,13 +57,12 @@ jobs:
           EOF
 
       - name: 🔄 Seedear la DB
-        run: |
-          mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
+        run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
 
       - name: 🧪 Ejecutar Tests Unitarios
         run: npm run test:unit
 
-      - name: 📊 Generar cobertura
+      - name: 📊 Generar Cobertura
         run: npm run coverage
 
       - name: 🧪 Ejecutar Tests de Integración
@@ -79,11 +78,15 @@ jobs:
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
+
+    # Indica que este job despliega al entorno protegido "production"
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
+
     steps:
       - name: ✅ Esperar aprobación
-        run: echo "Esperando aprobación manual..."
+        run: echo "Esperando aprobación manual para producción…"
+
       - name: 🟢 Deploy a Producción
-        run: echo "Railway hace el deploy automáticamente"
+        run: echo "Railway hará el deploy automáticamente tras la aprobación"
