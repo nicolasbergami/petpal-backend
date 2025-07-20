@@ -75,15 +75,13 @@ jobs:
       - uses: actions/checkout@v3
         name: 🔄 Checkout
 
-      - name: 🚀 Login Railway
-        run: npx @railway/cli login "${{ secrets.RAILWAY_TOKEN }}"
+      - name: 🚀 Login Railway CLI
+        run: |
+          npx @railway/cli login --ci "${{ secrets.RAILWAY_TOKEN }}"
 
       - name: 🌱 Deploy a Railway (QA)
         run: |
-          npx @railway/cli up . \
-            --environment production \
-            --service petpal-backend-production \
-            --detach
+          npx @railway/cli up . --environment production --detach
 
 
   deploy-prod:
@@ -102,10 +100,10 @@ jobs:
         with:
           reviewers: nicolasbergami,santiaguero7
 
+      - name: 🚀 Login Railway CLI
+        run: |
+          npx @railway/cli login --ci "${{ secrets.RAILWAY_TOKEN }}"
+
       - name: 🟢 Deploy a Producción en Railway
         run: |
-          npx @railway/cli login "${{ secrets.RAILWAY_TOKEN }}"
-          npx @railway/cli up . \
-            --environment production \
-            --service petpal-backend \
-            --detach
+          npx @railway/cli up . --environment production --detach
