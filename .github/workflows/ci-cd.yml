@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # El CLI de Railway leerá este token automáticamente
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -76,13 +80,8 @@ jobs:
       - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 🚀 Login Railway CLI
-        run: |
-          npx @railway/cli login --token ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: 🌱 Deploy a QA
-        run: |
-          npx @railway/cli up --projectRoot . --env qa --detach
+      - name: 🚀 Deploy a QA en Railway
+        run: npx @railway/cli up --projectRoot . --env qa --detach
 
   deploy-prod:
     needs: deploy-qa
@@ -96,15 +95,10 @@ jobs:
       - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 🚀 Login Railway CLI
-        run: |
-          npx @railway/cli login --token ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: ✅ Esperar aprobación
+      - name: ✅ Esperar aprobación para prod
         uses: peter-evans/wait-for-approval@v2
         with:
           reviewers: nicolasbergami,santiaguero7
 
-      - name: 🟢 Deploy a Producción
-        run: |
-          npx @railway/cli up --projectRoot . --env production --detach
+      - name: 🟢 Deploy a Producción en Railway
+        run: npx @railway/cli up --projectRoot . --env production --detach
