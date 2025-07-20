@@ -7,7 +7,6 @@ on:
     branches: [ main ]
 
 env:
-  # El CLI de Railway leerá este token automáticamente
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
 jobs:
@@ -28,29 +27,18 @@ jobs:
           --health-retries=3
 
     steps:
-      - name: 🔄 Checkout repositorio
-        uses: actions/checkout@v3
-
-      - name: 📦 Configurar Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
-
-      - name: 📥 Instalar dependencias
-        run: npm install --no-bin-links
-
-      - name: 🔧 Dar permisos a Jest
-        run: chmod +x ./node_modules/.bin/jest
-
-      - name: 🔧 Esperar MySQL listo
-        run: |
+      - run: npm install --no-bin-links
+      - run: chmod +x ./node_modules/.bin/jest
+      - run: |
           for i in {1..10}; do
             mysqladmin ping -h127.0.0.1 -uroot -proot && break
-            echo "Waiting for MySQL..." && sleep 3
+            sleep 3
           done
-
-      - name: 🛠️ Crear archivo .env
-        run: |
+      - run: |
           cat <<EOF > .env
           DB_HOST=127.0.0.1
           DB_USER=root
@@ -59,46 +47,30 @@ jobs:
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
-
-      - name: 🔄 Seedear la DB
-        run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
-
-      - name: 🧪 Ejecutar Tests Unitarios
-        run: npm run test:unit
-
-      - name: 📊 Generar Cobertura
-        run: npm run coverage
-
-      - name: 🧪 Ejecutar Tests de Integración
-        run: npm run test:integration
+      - run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
+      - run: npm run test:unit
+      - run: npm run coverage
+      - run: npm run test:integration
 
   deploy-qa:
     needs: build-and-test
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🔄 Checkout
-        uses: actions/checkout@v3
-
-      - name: 🚀 Deploy a QA en Railway
-        run: npx @railway/cli up --projectRoot . --env qa --detach
+      - uses: actions/checkout@v3
+      - name: Deploy to QA
+        run: npx @railway/cli up . --environment qa --detach
 
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
-
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
-
     steps:
-      - name: 🔄 Checkout
-        uses: actions/checkout@v3
-
-      - name: ✅ Esperar aprobación para prod
+      - uses: actions/checkout@v3
+      - name: Wait for approval
         uses: peter-evans/wait-for-approval@v2
         with:
           reviewers: nicolasbergami,santiaguero7
-
-      - name: 🟢 Deploy a Producción en Railway
-        run: npx @railway/cli up --projectRoot . --env production --detach
+      - name: Deploy to Production
+        run: npx @railway/cli up . --environment production --detach
