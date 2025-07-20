@@ -68,48 +68,43 @@ jobs:
       - name: 🧪 Ejecutar Tests de Integración
         run: npm run test:integration
 
-
   deploy-qa:
-     needs: build-and-test
-     runs-on: ubuntu-latest
-     steps:
-       - name: 🔄 Checkout
-         uses: actions/checkout@v3
+    needs: build-and-test
+    runs-on: ubuntu-latest
 
-       - name: 🚀 Login Railway CLI
-         run: |
-          # usamos directamente npx con el nuevo paquete
-          npx @railway/cli login --apiToken ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-       - name: 🌱 Deploy a QA
-         run: |
-           railway up --projectRoot . --env qa --detach
+      - name: 🚀 Login Railway CLI
+        run: |
+          npx @railway/cli login --token ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: 🌱 Deploy a QA
+        run: |
+          npx @railway/cli up --projectRoot . --env qa --detach
 
   deploy-prod:
-     needs: deploy-qa
-     runs-on: ubuntu-latest
+    needs: deploy-qa
+    runs-on: ubuntu-latest
 
-     environment:
-       name: production
-       url: https://petpal-backend-production.up.railway.app
+    environment:
+      name: production
+      url: https://petpal-backend-production.up.railway.app
 
-     steps:
-       - name: 🔄 Checkout
-         uses: actions/checkout@v3
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-       - name: 🚀 Login Railway CLI
-         run: |
-          npm install -g railway
-          railway login --apiToken ${{ secrets.RAILWAY_TOKEN }}
-       - name: 🚀 Login Railway CLI
-         run: |
-          npx @railway/cli login --apiToken ${{ secrets.RAILWAY_TOKEN }}
+      - name: 🚀 Login Railway CLI
+        run: |
+          npx @railway/cli login --token ${{ secrets.RAILWAY_TOKEN }}
 
-       - name: ✅ Esperar aprobación
-         uses: peter-evans/wait-for-approval@v2
-         with:
-           reviewers: nicolasbergami,santiaguero7
+      - name: ✅ Esperar aprobación
+        uses: peter-evans/wait-for-approval@v2
+        with:
+          reviewers: nicolasbergami,santiaguero7
 
-       - name: 🟢 Deploy a Producción
-         run: |
-           railway up --projectRoot . --env production --detach
+      - name: 🟢 Deploy a Producción
+        run: |
+          npx @railway/cli up --projectRoot . --env production --detach
