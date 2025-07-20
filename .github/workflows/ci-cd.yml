@@ -85,8 +85,10 @@ jobs:
           echo ""
 
           echo "--- Debug: Verificar variables de entorno de Railway ---"
+          echo "Debug: RAILWAY_TOKEN raw access: ${{ secrets.RAILWAY_TOKEN }}"
+          echo "Debug: RAILWAY_PROJECT_ID raw access: ${{ secrets.RAILWAY_PROJECT_ID }}"
           echo "RAILWAY_TOKEN_SET: ${{ contains(env.RAILWAY_TOKEN, '***') }}"
-          echo "RAILWAY_PROJECT_SET: ${{ contains(env.RAILWAY_PROJECT, 'b1639e5d') }}" 
+          echo "RAILWAY_PROJECT_SET: ${{ contains(env.RAILWAY_PROJECT_ID, 'b1639e5d') }}" 
           echo "RAILWAY_SERVICE_PASSED: petpal-backend"
           echo "RAILWAY_ENVIRONMENT_PASSED: production"
           echo ""
