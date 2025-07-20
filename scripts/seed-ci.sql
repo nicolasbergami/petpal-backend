@@ -2,10 +2,8 @@
 
 -- 1) Desactivar comprobaciones de FK para poder truncar sin errores
 SET FOREIGN_KEY_CHECKS = 0;
-
 TRUNCATE TABLE petpals;
 TRUNCATE TABLE users;
-
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 2) Crear tablas si aún no existen
@@ -39,7 +37,7 @@ INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono
 VALUES (
   'Test User',
   'test@example.com',
-  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',  -- hash de bcrypt("123456")
+  '$2b$10$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO',  -- hash correcto de bcrypt("123456")
   'petpal',
   '12345678',
   'Calle Falsa 123',
