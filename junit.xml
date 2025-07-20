@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="1" failures="1" errors="0" time="0.623">
-  <testsuite name="PetPal Integration Tests" errors="0" failures="1" skipped="0" timestamp="2025-07-20T22:21:40" time="0.573" tests="1">
-    <testcase classname="PetPal Integration Tests should respond with a 200 status for /health endpoint" name="PetPal Integration Tests should respond with a 200 status for /health endpoint" time="0.001" file="tests\integration\petpalEndpoints.test.js">
+<testsuites name="jest tests" tests="1" failures="1" errors="0" time="0.646">
+  <testsuite name="PetPal Integration Tests" errors="0" failures="1" skipped="0" timestamp="2025-07-20T22:58:00" time="0.595" tests="1">
+    <testcase classname="PetPal Integration Tests should respond with a 200 status for / (root) endpoint" name="PetPal Integration Tests should respond with a 200 status for / (root) endpoint" time="0.001" file="tests\integration\petpalEndpoints.test.js">
       <failure>Error: Access denied for user &apos;root&apos;@&apos;localhost&apos; (using password: YES)
     at Object.createConnectionPromise [as createConnection] (C:\Users\nicol\Documents\petpal-backend\node_modules\mysql2\promise.js:19:31)
     at Object.createConnection (C:\Users\nicol\Documents\petpal-backend\tests\integration\petpalEndpoints.test.js:13:30)
