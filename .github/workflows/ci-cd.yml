@@ -74,33 +74,26 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - name: 🔄 Checkout
+      - name: 🔄 Checkout repositorio
         uses: actions/checkout@v3
 
-      # Si tienes un entorno QA en Railway, cámbialo aquí.
       - name: 🚀 Deploy a QA (placeholder)
         run: |
           echo "Aquí harías el deploy a tu entorno QA en Railway"
-          # por ejemplo:
-          # npm install -g @railway/cli
-          # railway login --apiKey $RAILWAY_TOKEN
-          # railway up . --detach
+          # e.g. npx @railway/cli up . --detach --environment qa
 
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
 
-    # Este environment coincide con el 'production' protegido en GitHub → se quedará "on hold"
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
 
     steps:
-      - name: 🔄 Checkout
+      - name: 🔄 Checkout repositorio
         uses: actions/checkout@v3
 
-      - name: 🚀 Login Railway CLI y Deploy a Producción
-        run: |
-          npm install -g @railway/cli
-          railway login --apiKey $RAILWAY_TOKEN
-          railway up . --detach
+      - name: 🟢 Deploy a Producción
+        # El CLI detecta automáticamente RAILWAY_TOKEN
+        run: npx @railway/cli up . --detach --environment production
