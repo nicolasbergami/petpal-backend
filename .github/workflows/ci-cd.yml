@@ -18,12 +18,13 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: root # Contraseña ROOT para que el contenedor MySQL inicie con privilegios para el init script
           MYSQL_DATABASE: testdb
         ports: ["3306:3306"]
-        options: >- 
-          --health-cmd="mysqladmin ping -h localhost -proot" --health-interval=10s --health-retries=3 
-       
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot" --health-interval=10s --health-retries=3
+        volumes: # <--- ¡REINTRODUCIMOS ESTO!
+          - ./scripts/init-testdb.sql:/docker-entrypoint-initdb.d/init.sql # Monta el script de inicialización
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -41,8 +42,9 @@ jobs:
 
       - name: Wait for MySQL
         run: |
+          # Ahora esperamos usando el nuevo usuario de tests
           for i in {1..20}; do
-            mysqladmin ping -h127.0.0.1 -uroot -proot && break
+            mysqladmin ping -h127.0.0.1 -utestuser -ptestpassword && break
             sleep 2
           done
 
@@ -50,15 +52,16 @@ jobs:
         run: |
           cat > .env <<EOF
           DB_HOST=127.0.0.1
-          DB_USER=root
-          DB_PASSWORD=root
+          DB_USER=testuser # <--- ¡IMPORTANTE! Cambiar a testuser
+          DB_PASSWORD=testpassword # <--- ¡IMPORTANTE! Cambiar a testpassword
           DB_DATABASE=testdb
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
 
       - name: Load database schema for tests
-        run: mysql -h127.0.0.1 -uroot -proot testdb < ./scripts/schema-ci-testdb.sql
+        # Usar el nuevo usuario de tests para cargar el esquema
+        run: mysql -h127.0.0.1 -utestuser -ptestpassword testdb < ./scripts/schema-ci-testdb.sql
 
       - name: Run Unit Tests
         run: npm run test:unit
@@ -84,12 +87,10 @@ jobs:
           path: junit-integration.xml
           reporter: jest-junit
 
-  # ... el resto del workflow (deploy-to-qa-and-test, deploy-to-prod)
-
   deploy-to-qa-and-test:
     needs: build-and-test-local
     runs-on: ubuntu-latest
-    permissions: # <--- También AÑADE ESTO AQUÍ si este job también publica reportes o estados
+    permissions:
       checks: write
       contents: read
     environment:
@@ -119,7 +120,6 @@ jobs:
       - name: Wait for QA Deployment to be ready
         run: |
           sleep 10
-          # Asegúrate de que tu backend tenga un endpoint /health
           curl -f -I "${{ steps.get_qa_url.outputs.QA_URL }}/health" || true
 
       - name: Run Remote Integration Tests on QA
@@ -140,10 +140,10 @@ jobs:
   deploy-to-prod:
     needs: deploy-to-qa-and-test
     runs-on: ubuntu-latest
-    permissions: # <--- Y AQUÍ si este job también necesita permisos de escritura (para el entorno production)
+    permissions:
       contents: read
-      deployments: write # Necesario para interactuar con los deployments de GitHub (especialmente en entornos)
-      statuses: write # Para actualizar el estado del commit
+      deployments: write
+      statuses: write
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
