@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     branches:
-      - main
+          - main
 
 jobs:
   build-and-test-local:
@@ -18,13 +18,13 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root # Contraseña ROOT para que el contenedor MySQL inicie con privilegios para el init script
+          MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: testdb
         ports: ["3306:3306"]
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -uroot -proot" --health-interval=10s --health-retries=3
-        volumes: # <--- ¡REINTRODUCIMOS ESTO!
-          - ./scripts/init-testdb.sql:/docker-entrypoint-initdb.d/init.sql # Monta el script de inicialización
+          --health-cmd="mysql -uroot -proot -e 'SELECT 1'" --health-interval=10s --health-retries=15 --health-timeout=5s --start-period=30s # <--- CAMBIOS AQUI
+        volumes:
+          - ./scripts/init-testdb.sql:/docker-entrypoint-initdb.d/init.sql
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -42,25 +42,28 @@ jobs:
 
       - name: Wait for MySQL
         run: |
-          # Ahora esperamos usando el nuevo usuario de tests
-          for i in {1..20}; do
+          echo "Waiting for MySQL with testuser..."
+          # Este paso de espera manual puede ser útil si el healthcheck de Docker es demasiado estricto.
+          # Aún así, lo haremos con el usuario testuser, ya que init-testdb.sql ya se ejecutó.
+          for i in {1..30}; do # Aumentamos el loop a 30 (60 segundos máximo)
             mysqladmin ping -h127.0.0.1 -utestuser -ptestpassword && break
+            echo "MySQL not ready yet (testuser), waiting..."
             sleep 2
           done
+          mysqladmin ping -h127.0.0.1 -utestuser -ptestpassword || { echo "MySQL failed to become ready for testuser after manual wait"; exit 1; }
 
       - name: Create .env for local tests
         run: |
           cat > .env <<EOF
           DB_HOST=127.0.0.1
-          DB_USER=testuser # <--- ¡IMPORTANTE! Cambiar a testuser
-          DB_PASSWORD=testpassword # <--- ¡IMPORTANTE! Cambiar a testpassword
+          DB_USER=testuser
+          DB_PASSWORD=testpassword
           DB_DATABASE=testdb
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
 
       - name: Load database schema for tests
-        # Usar el nuevo usuario de tests para cargar el esquema
         run: mysql -h127.0.0.1 -utestuser -ptestpassword testdb < ./scripts/schema-ci-testdb.sql
 
       - name: Run Unit Tests
@@ -86,6 +89,8 @@ jobs:
           name: Local Integration Tests Report
           path: junit-integration.xml
           reporter: jest-junit
+
+    # ... (el resto del workflow para QA y PROD)
 
   deploy-to-qa-and-test:
     needs: build-and-test-local
