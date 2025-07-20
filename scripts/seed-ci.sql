@@ -1,12 +1,6 @@
--- scripts/seed-ci.sql
+-- scripts/seed‑ci.sql
 
--- 1) Desactivar FK para truncar sin errores
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE petpal_profiles;
-TRUNCATE TABLE users;
-SET FOREIGN_KEY_CHECKS = 1;
-
--- 2) Crear tablas si aún no existen
+-- 1) Crear tablas si aún no existen
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
@@ -29,8 +23,14 @@ CREATE TABLE IF NOT EXISTS petpal_profiles (
   location VARCHAR(100),
   pet_type VARCHAR(20),
   size_accepted VARCHAR(10),
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- 2) Desactivar FK, truncar y volver a activar
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE petpal_profiles;
+TRUNCATE TABLE users;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- 3) Semillas
 INSERT INTO users 
