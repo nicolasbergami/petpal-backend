@@ -47,36 +47,37 @@ jobs:
       - run: npm run coverage
       - run: npm run test:integration
 
-  deploy-qa:
-    needs: build-and-test
+  # RENOMBRADO A "ready-for-qa-approval"
+  # Este job SÓLO verifica que la build pasó las pruebas y está lista.
+  # NO despliega a Railway en este punto.
+  ready-for-qa-approval:
+    needs: build-and-test # Depende de que las pruebas y la construcción sean exitosas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Desplegar en Railway (QA / Pre-producción)
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE: petpal-backend # Apuntamos al servicio de backend
-          RAILWAY_ENVIRONMENT: production # Apuntamos al único entorno disponible: production
-        run: npx @railway/cli@latest up . --detach
+      - name: El código ha pasado las pruebas y está listo para revisión de QA.
+        run: echo "El código ha pasado las pruebas unitarias/integración y está listo para revisión/aprobación manual antes del despliegue a producción."
+      # No hay ningún comando 'railway up' aquí.
 
   deploy-prod:
-    needs: deploy-qa
+    needs: ready-for-qa-approval # Ahora este job depende del paso de "QA" (la preparación)
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
     steps:
       - uses: actions/checkout@v3
-      - name: Esperar aprobación manual
+      - name: Esperar aprobación manual para despliegue a PRODUCCIÓN
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
           approvers: nicolasbergami,santiaguero7
           minimum-approvals: 1
           issue-title: "Aprobación manual requerida para deploy a producción"
-      - name: Desplegar en Railway (PROD)
+      - name: Desplegar en Railway (PRODUCCIÓN REAL)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE: petpal-backend # Apuntamos al servicio de backend
-          RAILWAY_ENVIRONMENT: production # Apuntamos al entorno de producción
-        run: npx @railway/cli@latest up . --detach
+        run: |
+          # ¡Este es el ÚNICO punto donde se realizará un despliegue a Railway!
+          # Se especifica el servicio y el entorno directamente en el comando 'up',
+          # ya que la CLI lo requiere explícitamente cuando hay múltiples servicios.
+          npx @railway/cli@latest up . --service petpal-backend --environment production --detach
