@@ -52,21 +52,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Exportar Railway Token
-        run: echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }}" >> $GITHUB_ENV
-      - name: Configurar servicio y entorno de Railway para QA
-        run: |
-          echo "RAILWAY_SERVICE=petpal-backend" >> $GITHUB_ENV
-          echo "RAILWAY_ENVIRONMENT=qa" >> $GITHUB_ENV # Asumo que tienes un entorno 'qa' en Railway
-      - name: Desplegar en Railway (QA)
-        run: npx @railway/cli@latest up . --detach # Aquí eliminamos --service y --environment
+      - name: Desplegar en Railway (QA / Pre-producción)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: petpal-backend # Apuntamos al servicio de backend
+          RAILWAY_ENVIRONMENT: production # Apuntamos al único entorno disponible: production
+        run: npx @railway/cli@latest up . --detach
 
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://petpal-backend-production.up.railway.app # Asegúrate de que esta URL sea la correcta
+      url: https://petpal-backend-production.up.railway.app
     steps:
       - uses: actions/checkout@v3
       - name: Esperar aprobación manual
@@ -76,11 +74,9 @@ jobs:
           approvers: nicolasbergami,santiaguero7
           minimum-approvals: 1
           issue-title: "Aprobación manual requerida para deploy a producción"
-      - name: Exportar Railway Token
-        run: echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }}" >> $GITHUB_ENV
-      - name: Configurar servicio y entorno de Railway para PROD
-        run: |
-          echo "RAILWAY_SERVICE=petpal-backend" >> $GITHUB_ENV
-          echo "RAILWAY_ENVIRONMENT=production" >> $GITHUB_ENV
       - name: Desplegar en Railway (PROD)
-        run: npx @railway/cli@latest up . --detach # Aquí eliminamos --service y --environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: petpal-backend # Apuntamos al servicio de backend
+          RAILWAY_ENVIRONMENT: production # Apuntamos al entorno de producción
+        run: npx @railway/cli@latest up . --detach
