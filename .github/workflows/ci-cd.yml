@@ -60,12 +60,8 @@ jobs:
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
-    
-    # AÑADE ESTE BLOQUE DE PERMISOS
     permissions:
-      issues: write # Permite que el GITHUB_TOKEN pueda crear (write) issues
-      pull-requests: write # Es una buena práctica para la aprobación manual si usa PRs, aunque para issues con `trstringer` 'issues: write' suele ser suficiente.
-
+      issues: write
     steps:
       - uses: actions/checkout@v3
       - name: Esperar aprobación manual para despliegue a PRODUCCIÓN
@@ -78,5 +74,7 @@ jobs:
       - name: Desplegar en Railway (PRODUCCIÓN REAL)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # ¡CORREGIDO AQUÍ! Usamos el nombre del secreto exacto.
+          RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
         run: |
           npx @railway/cli@latest up . --service petpal-backend --environment production --detach
