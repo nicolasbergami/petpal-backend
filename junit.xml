@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="1" failures="1" errors="0" time="0.819">
+  <testsuite name="GET /api/petpals" errors="0" failures="1" skipped="0" timestamp="2025-07-20T21:23:26" time="0.769" tests="1">
+    <testcase classname="GET /api/petpals Debería devolver una lista de petpals con status 200" name="GET /api/petpals Debería devolver una lista de petpals con status 200" time="0.001" file="tests\integration\petpalEndpoints.test.js">
+      <failure>Error: Access denied for user &apos;root&apos;@&apos;localhost&apos; (using password: YES)
+    at Object.createConnectionPromise [as createConnection] (C:\Users\nicol\Documents\petpal-backend\node_modules\mysql2\promise.js:19:31)
+    at Object.createConnection (C:\Users\nicol\Documents\petpal-backend\tests\integration\petpalEndpoints.test.js:11:22)
+    at Promise.finally.completed (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:1559:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:1499:10)
+    at _callCircusHook (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:978:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTestsForDescribeBlock (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:775:7)
+    at _runTestsForDescribeBlock (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:829:11)
+    at run (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:757:3)
+    at runAndTransformResultsToJestFormat (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\jestAdapterInit.js:1920:21)
+    at jestAdapter (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-runner\build\index.js:272:16)
+    at runTest (C:\Users\nicol\Documents\petpal-backend\node_modules\jest-runner\build\index.js:340:7)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

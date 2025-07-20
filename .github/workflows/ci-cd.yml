@@ -11,20 +11,23 @@ on:
 jobs:
   build-and-test-local:
     runs-on: ubuntu-latest
-    permissions: # <--- ¡AÑADE ESTO AQUÍ!
-      checks: write # Permite al job escribir Check Runs (necesario para test-reporter)
-      contents: read # Permite leer el código (ya suele ser el default, pero no está de más)
+    permissions:
+      checks: write
+      contents: read
     services:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: root # Mantén esta para que el contenedor inicie
           MYSQL_DATABASE: testdb
         ports: ["3306:3306"]
         options: >-
           --health-cmd="mysqladmin ping -h localhost -proot"
           --health-interval=10s
           --health-retries=3
+        # --- NUEVA CONFIGURACIÓN AQUÍ ---
+        volumes:
+          - ./scripts/init-testdb.sql:/docker-entrypoint-initdb.d/init.sql # Monta el script de inicialización
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -43,7 +46,8 @@ jobs:
       - name: Wait for MySQL
         run: |
           for i in {1..20}; do
-            mysqladmin ping -h127.0.0.1 -uroot -proot && break
+            # Ahora pingueamos con el usuario de test
+            mysqladmin ping -h127.0.0.1 -utestuser -ptestpassword && break
             sleep 2
           done
 
@@ -51,15 +55,16 @@ jobs:
         run: |
           cat > .env <<EOF
           DB_HOST=127.0.0.1
-          DB_USER=root
-          DB_PASSWORD=root
+          DB_USER=testuser # <--- ¡CAMBIA A testuser!
+          DB_PASSWORD=testpassword # <--- ¡CAMBIA A testpassword!
           DB_DATABASE=testdb
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
 
       - name: Load database schema for tests
-        run: mysql -h127.0.0.1 -uroot -proot testdb < ./scripts/schema-ci-testdb.sql
+        # Ahora usamos el usuario de test para ejecutar el esquema
+        run: mysql -h127.0.0.1 -utestuser -ptestpassword testdb < ./scripts/schema-ci-testdb.sql
 
       - name: Run Unit Tests
         run: npm run test:unit
@@ -84,6 +89,8 @@ jobs:
           name: Local Integration Tests Report
           path: junit-integration.xml
           reporter: jest-junit
+
+    # ... (el resto del workflow deploy-to-qa-and-test y deploy-to-prod se mantiene igual)
 
   deploy-to-qa-and-test:
     needs: build-and-test-local

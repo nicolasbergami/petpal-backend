@@ -28,8 +28,8 @@
     "supertest": "^7.1.3"
   },
   "jest-junit": {
-    "outputDirectory": "./",
-    "outputName": "junit.xml", 
+    "outputDirectory": "./",   
+    "outputName": "junit.xml",
     "ancestorSeparator": " › ",
     "addFileAttribute": "true"
   }
