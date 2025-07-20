@@ -92,7 +92,6 @@ jobs:
 
       - name: Desplegar en Railway (PRODUCCIÓN REAL)
         run: |
-          # Asegura que RAILWAY_TOKEN y RAILWAY_PROJECT estén disponibles en el entorno de este comando
           RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }} \
           RAILWAY_PROJECT=${{ secrets.RAILWAY_PROJECT_ID }} \
-          npx @railway/cli@3.8.0 up . --service petpal-backend --environment production --detach
+          npx @railway/cli@latest up . --service petpal-backend --environment production --detach # <--- CAMBIADO DE NUEVO A @latest
