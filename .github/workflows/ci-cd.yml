@@ -35,7 +35,7 @@ jobs:
       - name: 📥 Instalar dependencias
         run: npm install --no-bin-links
 
-      - name: 🔧 Dar permisos a Jest
+      - name: 🔧 Permisos a Jest
         run: chmod +x ./node_modules/.bin/jest
 
       - name: 🔧 Esperar MySQL listo
@@ -45,7 +45,7 @@ jobs:
             echo "Waiting for MySQL..." && sleep 3
           done
 
-      - name: 🛠️ Crear archivo .env
+      - name: 🛠️ Crear .env
         run: |
           cat <<EOF > .env
           DB_HOST=127.0.0.1
@@ -59,13 +59,13 @@ jobs:
       - name: 🔄 Seedear la DB
         run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
 
-      - name: 🧪 Ejecutar Tests Unitarios
+      - name: 🧪 Tests Unitarios
         run: npm run test:unit
 
-      - name: 📊 Generar Cobertura
+      - name: 📊 Cobertura
         run: npm run coverage
 
-      - name: 🧪 Ejecutar Tests de Integración
+      - name: 🧪 Tests Integración
         run: npm run test:integration
 
 
@@ -77,18 +77,9 @@ jobs:
       - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 🚀 Login Railway CLI
+      - name: 🌱 Deploy “QA” en Railway (usa env production)
         run: |
-          npx @railway/cli login --apiKey ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: 🔗 Enlazar proyecto en Railway (QA)
-        run: |
-          npx @railway/cli link \
-            --projectId ${{ secrets.RAILWAY_PROJECT_ID }} \
-            --environment production   # aquí solo hay producción en Railway
-
-      - name: 🌱 Deploy a QA (env “production” en Railway)
-        run: |
+          # Railway CLI lee RAILWAY_TOKEN del entorno
           npx @railway/cli up . \
             --environment production \
             --detach
@@ -106,14 +97,10 @@ jobs:
       - name: 🔄 Checkout
         uses: actions/checkout@v3
 
-      - name: 🚀 Login Railway CLI
-        run: |
-          npx @railway/cli login --apiKey ${{ secrets.RAILWAY_TOKEN }}
-
       - name: ✅ Esperar aprobación manual
         uses: peter-evans/wait-for-approval@v1
         with:
-          reviewers: nicolasbergami,santiaguero7   # los que configuraste en GitHub Environments
+          reviewers: nicolasbergami,santiaguero7
 
       - name: 🟢 Deploy a Producción en Railway
         run: |
