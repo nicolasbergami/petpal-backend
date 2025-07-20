@@ -1,42 +1,57 @@
 const request = require('supertest');
-const fs      = require('fs');
-const path    = require('path');
-const mysql   = require('mysql2/promise');
-const app     = require('../../src/app');
+const app = require('../../src/app');
+const mysql = require('mysql2/promise');
 
 describe('GET /api/petpals', () => {
   let token;
-  let db; // conexión promise para sembrar datos
+  let db;
 
   beforeAll(async () => {
-    // 1) Conectar a MySQL (servicio de CI)
+    // 1) Conectar a MySQL de CI (igual que antes)
     db = await mysql.createConnection({
-      host:     process.env.DB_HOST     || '127.0.0.1',
-      user:     process.env.DB_USER     || 'root',
+      host: process.env.DB_HOST || '127.0.0.1',
+      user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || 'root',
       database: process.env.DB_DATABASE || 'testdb',
-      port:     process.env.DB_PORT     ? +process.env.DB_PORT : 3306,
+      port: process.env.DB_PORT ? +process.env.DB_PORT : 3306
     });
 
-    // 2) Leer y ejecutar el seed
-    const seedPath = path.join(__dirname, '../../scripts/seed-ci.sql');
-    if (fs.existsSync(seedPath)) {
-      const seedSql = fs.readFileSync(seedPath, 'utf8');
-      for (const stmt of seedSql
-        .split(';')
-        .map(s => s.trim())
-        .filter(Boolean)) {
-        await db.query(stmt);
-      }
-    } else {
-      console.warn('⚠️ No se encontró scripts/seed-ci.sql en', seedPath);
-    }
+    // 2) Limpiar tablas directamente
+    await db.query('SET FOREIGN_KEY_CHECKS = 0');
+    await db.query('TRUNCATE TABLE petpals');
+    await db.query('TRUNCATE TABLE users');
+    await db.query('SET FOREIGN_KEY_CHECKS = 1');
 
-    // 3) Loguearnos y obtener token
+    // 3) Registar usuario vía API para que el backend haga el hash
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: '123456',    // contraseña en claro
+        role: 'petpal',
+        dni: '12345678',
+        direccion: 'Calle Falsa 123',
+        barrio: 'Nueva Córdoba',
+        telefono: '3511234567'
+      });
+    expect(registerRes.statusCode).toBe(201);
+
+    // 4) Crear un petpal básico para la ruta GET /petpals
+    // (usa directamente SQL porque no tenemos endpoint para esto)
+    await db.query(
+      `INSERT INTO petpals (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
+       VALUES (
+         (SELECT id FROM users WHERE email = 'test@example.com'),
+         'dog walker', 15.00, '2 años','Nueva Córdoba','dog','all'
+       )`
+    );
+
+    // 5) Ahora hacemos login
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send({
-        email:    'test@example.com',
+        email: 'test@example.com',
         password: '123456'
       });
     expect(loginRes.statusCode).toBe(200);
@@ -48,20 +63,14 @@ describe('GET /api/petpals', () => {
     const res = await request(app)
       .get('/api/petpals')
       .set('Authorization', `Bearer ${token}`);
-
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   afterAll(async () => {
-    // cerrar conexión interna de la app
+    // cerrar conexiones
     const appDb = require('../../src/config/db');
-    if (appDb && typeof appDb.end === 'function') {
-      await new Promise(r => appDb.end(r));
-    }
-    // cerrar la conexión de CI
-    if (db) {
-      await db.end();
-    }
+    if (appDb && typeof appDb.end === 'function') await new Promise(r => appDb.end(r));
+    if (db) await db.end();
   });
 });
