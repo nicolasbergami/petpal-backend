@@ -1,12 +1,12 @@
 -- scripts/seed-ci.sql
 
--- 1) Desactivar comprobaciones de FK para poder truncar sin errores
+-- 1) Desactivar FK para truncar
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE petpals;
+TRUNCATE TABLE petpal_profiles;
 TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
 
--- 2) Crear tablas si aún no existen
+-- 2) Crear tablas si faltan
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   telefono VARCHAR(20)
 );
 
-CREATE TABLE IF NOT EXISTS petpals (
+CREATE TABLE IF NOT EXISTS petpal_profiles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT,
   service_type VARCHAR(50),
@@ -37,22 +37,23 @@ INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono
 VALUES (
   'Test User',
   'test@example.com',
-  '$2b$10$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO',  -- hash correcto de bcrypt("123456")
+  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',
   'petpal',
   '12345678',
   'Calle Falsa 123',
   'Nueva Córdoba',
   '3511234567'
-);
+)
+ON DUPLICATE KEY UPDATE email = email;
 
--- Usamos LAST_INSERT_ID() para enlazar el perfil con el usuario recién creado
-INSERT INTO petpals (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
+INSERT INTO petpal_profiles (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
 VALUES (
-  LAST_INSERT_ID(),
+  (SELECT id FROM users WHERE email='test@example.com'),
   'dog walker',
   15.00,
   '2 años de experiencia',
   'Nueva Córdoba',
   'dog',
   'all'
-);
+)
+ON DUPLICATE KEY UPDATE user_id = user_id;
