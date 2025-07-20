@@ -7,7 +7,7 @@
     "dev": "nodemon src/index.js",
     "test": "npm run test:unit",
     "test:unit": "jest tests/unit --coverage --reporters=default --reporters=jest-junit --outputFile=junit.xml",
-    "test:integration": "jest tests/integration --forceExit --reporters=default --reporters=jest-junit --outputFile=junit-integration.xml",
+    "test:integration": "jest --config jest.integration.config.js --verbose --forceExit",
     "test:integration-remote": "jest tests/integration --forceExit --reporters=default --reporters=jest-junit --outputFile=junit-integration-remote.xml",
     "coverage": "jest --ci --coverage --forceExit"
   },
