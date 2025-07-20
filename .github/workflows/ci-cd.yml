@@ -68,25 +68,49 @@ jobs:
       - name: 🧪 Ejecutar Tests de Integración
         run: npm run test:integration
 
+
   deploy-qa:
     needs: build-and-test
     runs-on: ubuntu-latest
+
     steps:
-      - name: 🚀 Deploy a QA
-        run: echo "Aquí harías el push a Railway QA..."
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
+
+      - name: 🚀 Login Railway CLI
+        run: |
+          npm install -g railway
+          railway login --apiToken ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: 🌱 Deploy a QA
+        run: |
+          # Asumiendo que tienes configurado un "railway up" para QA
+          railway up --projectRoot . --env qa --detach
+
 
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
 
-    # Indica que este job despliega al entorno protegido "production"
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
 
     steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
+
+      - name: 🚀 Login Railway CLI
+        run: |
+          npm install -g railway
+          railway login --apiToken ${{ secrets.RAILWAY_TOKEN }}
+
       - name: ✅ Esperar aprobación
-        run: echo "Esperando aprobación manual para producción…"
+        uses: peter-evans/wait-for-approval@v2
+        with:
+          reviewers: nicolasbergami,santiaguero7
+          # opcional: timeout-minutes: 1440
 
       - name: 🟢 Deploy a Producción
-        run: echo "Railway hará el deploy automáticamente tras la aprobación"
+        run: |
+          railway up --projectRoot . --env production --detach
