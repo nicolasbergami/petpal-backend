@@ -1,12 +1,12 @@
 -- scripts/seed-ci.sql
 
--- 1) Desactivar FK para truncar
+-- 1) Desactivar FK para truncar sin errores
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE petpal_profiles;
 TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
 
--- 2) Crear tablas si faltan
+-- 2) Crear tablas si aún no existen
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
@@ -33,27 +33,31 @@ CREATE TABLE IF NOT EXISTS petpal_profiles (
 );
 
 -- 3) Semillas
-INSERT INTO users (name, email, password, role, dni, direccion, barrio, telefono)
-VALUES (
-  'Test User',
-  'test@example.com',
-  '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6',
-  'petpal',
-  '12345678',
-  'Calle Falsa 123',
-  'Nueva Córdoba',
-  '3511234567'
-)
+INSERT INTO users 
+  (name, email, password, role, dni, direccion, barrio, telefono)
+VALUES 
+  (
+    'Test User',
+    'test@example.com',
+    '$2b$10$C5u2t8JkQdV8fM6XZhO8Kes5Y8aZQdpt8eY8zQe2gZlN5hXfN7vG6', -- bcrypt("123456")
+    'petpal',
+    '12345678',
+    'Calle Falsa 123',
+    'Nueva Córdoba',
+    '3511234567'
+  )
 ON DUPLICATE KEY UPDATE email = email;
 
-INSERT INTO petpal_profiles (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
-VALUES (
-  (SELECT id FROM users WHERE email='test@example.com'),
-  'dog walker',
-  15.00,
-  '2 años de experiencia',
-  'Nueva Córdoba',
-  'dog',
-  'all'
-)
+INSERT INTO petpal_profiles 
+  (user_id, service_type, price_per_hour, experience, location, pet_type, size_accepted)
+VALUES 
+  (
+    (SELECT id FROM users WHERE email = 'test@example.com'),
+    'dog walker',
+    15.00,
+    '2 años de experiencia',
+    'Nueva Córdoba',
+    'dog',
+    'all'
+  )
 ON DUPLICATE KEY UPDATE user_id = user_id;

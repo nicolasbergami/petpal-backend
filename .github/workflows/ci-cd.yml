@@ -1,4 +1,3 @@
-# .github/workflows/ci-cd.yml
 name: Petpal CI/CD Pipeline
 
 on:
@@ -22,14 +21,13 @@ jobs:
         options: >-
           --health-cmd="mysqladmin ping -h localhost -proot"
           --health-interval=10s
-          --health-timeout=5s
           --health-retries=3
 
     steps:
-      - name: 🔄 Checkout
+      - name: 🔄 Checkout repositorio
         uses: actions/checkout@v3
 
-      - name: 📦 Node.js
+      - name: 📦 Configurar Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -37,7 +35,7 @@ jobs:
       - name: 📥 Instalar dependencias
         run: npm install --no-bin-links
 
-      - name: 🔧 Fix jest permissions
+      - name: 🔧 Dar permisos a Jest
         run: chmod +x ./node_modules/.bin/jest
 
       - name: 🔧 Esperar MySQL listo
@@ -47,7 +45,7 @@ jobs:
             echo "Waiting for MySQL..." && sleep 3
           done
 
-      - name: 🛠️ Crear .env para CI
+      - name: 🛠️ Crear archivo .env
         run: |
           cat <<EOF > .env
           DB_HOST=127.0.0.1
@@ -58,57 +56,17 @@ jobs:
           JWT_SECRET=testing-secret
           EOF
 
-      - name: 🔄 Crear esquema y seed
+      - name: 🔄 Seedear la DB
         run: |
-          mysql -h127.0.0.1 -uroot -proot testdb <<SQL
-          -- Tabla de usuarios
-          CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100),
-            email VARCHAR(100) UNIQUE,
-            password VARCHAR(255),
-            role VARCHAR(20),
-            dni VARCHAR(20),
-            direccion VARCHAR(255),
-            barrio VARCHAR(100),
-            telefono VARCHAR(30)
-          );
-          -- Inserto Test User (password = "123456")
-          INSERT INTO users (name,email,password,role,dni,direccion,barrio,telefono)
-          VALUES (
-            'Test User',
-            'test@example.com',
-            '\$2b\$08\$CpC9KmaKwJttekTF1eXTTe8zVotB5fo9QcYFlw4mxgGx6.Nvq1jqO',
-            'petpal',
-            '12345678','Calle Falsa 123','Nueva Córdoba','3511234567'
-          )
-          ON DUPLICATE KEY UPDATE email=email;
+          mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
 
-          -- Tabla de perfiles petpal
-          CREATE TABLE IF NOT EXISTS petpals (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT,
-            service_type VARCHAR(50),
-            price_per_hour DECIMAL(6,2),
-            experience TEXT,
-            location VARCHAR(100),
-            pet_type VARCHAR(20),
-            size_accepted VARCHAR(20),
-            FOREIGN KEY(user_id) REFERENCES users(id)
-          );
-          -- Inserto un perfil demo
-          INSERT INTO petpals (user_id,service_type,price_per_hour,experience,location,pet_type,size_accepted)
-          VALUES (1,'dog walker',15.00,'Experiencia demo','Nueva Córdoba','dog','all')
-          ON DUPLICATE KEY UPDATE user_id=user_id;
-          SQL
-
-      - name: 🧪 Tests unitarios
+      - name: 🧪 Ejecutar Tests Unitarios
         run: npm run test:unit
 
-      - name: 📊 Cobertura
+      - name: 📊 Generar cobertura
         run: npm run coverage
 
-      - name: 🧪 Tests de integración
+      - name: 🧪 Ejecutar Tests de Integración
         run: npm run test:integration
 
   deploy-qa:
@@ -127,5 +85,5 @@ jobs:
     steps:
       - name: ✅ Esperar aprobación
         run: echo "Esperando aprobación manual..."
-      - name: 🟢 Deploy a PROD
-        run: echo "Railway deploy automático tras push"
+      - name: 🟢 Deploy a Producción
+        run: echo "Railway hace el deploy automáticamente"
