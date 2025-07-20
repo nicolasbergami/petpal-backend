@@ -1,23 +1,25 @@
-// src/config/db.js
-const mysql = require('mysql2');
+// src/config/db.js (¡Debe ser así!)
+const mysql = require('mysql2/promise'); // ¡IMPORTANTE: Usar la versión de promesas!
 require('dotenv').config();
 
-const connection = process.env.DATABASE_URL
-  ? mysql.createConnection(process.env.DATABASE_URL)
-  : mysql.createConnection({
-      host:     process.env.DB_HOST,
-      user:     process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_DATABASE,
-      port:     process.env.DB_PORT
-    });
+const createDbConnection = async () => {
+  try {
+    const connection = process.env.DATABASE_URL
+      ? await mysql.createConnection(process.env.DATABASE_URL)
+      : await mysql.createConnection({
+          host:     process.env.DB_HOST,
+          user:     process.env.DB_USER,
+          password: process.env.DB_PASSWORD,
+          database: process.env.DB_DATABASE,
+          port:     parseInt(process.env.DB_PORT, 10) // Asegúrate de parsear el puerto
+        });
 
-connection.connect(err => {
-  if (err) {
+    console.log('🚀 Conectado a la base de datos MySQL');
+    return connection; // Retorna la conexión exitosa
+  } catch (err) {
     console.error('❌ Error conectando a la base de datos:', err.message);
-    return;
+    throw err; // Lanza el error para que sea capturado por startServer en app.js
   }
-  console.log('🚀 Conectado a la base de datos MySQL');
-});
+};
 
-module.exports = connection;
+module.exports = createDbConnection; // Exporta la FUNCIÓN
