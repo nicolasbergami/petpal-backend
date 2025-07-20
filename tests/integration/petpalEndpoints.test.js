@@ -18,7 +18,7 @@ describe('GET /api/petpals', () => {
 
     // 2) Limpiar tablas directamente
     await db.query('SET FOREIGN_KEY_CHECKS = 0');
-    await db.query('TRUNCATE TABLE petpals');
+    await db.query('TRUNCATE TABLE petpals_profiles');
     await db.query('TRUNCATE TABLE users');
     await db.query('SET FOREIGN_KEY_CHECKS = 1');
 
