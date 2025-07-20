@@ -72,7 +72,7 @@ jobs:
           minimum-approvals: 1
           issue-title: "Aprobación manual requerida para deploy a producción"
       
-      # --- PASO DE DEPURACIÓN ---
+      # --- PASO DE DEPURACIÓN (MANTENLO POR SI ACASO, LUEGO SE PUEDE QUITAR) ---
       - name: Ejecutar comandos de depuración
         run: |
           echo "--- Debug: Listar archivos en el directorio actual ---"
@@ -87,14 +87,12 @@ jobs:
           echo "--- Debug: Verificar variables de entorno de Railway (antes de pasarlas directamente) ---"
           echo "Debug: RAILWAY_TOKEN raw access: ${{ secrets.RAILWAY_TOKEN }}"
           echo "Debug: RAILWAY_PROJECT_ID raw access: ${{ secrets.RAILWAY_PROJECT_ID }}"
-          # Estas líneas de "SET: false" eran engañosas porque miraban 'env' antes de la asignación directa.
-          # Con la asignación directa en el 'run' ya no necesitamos estas comprobaciones.
           echo ""
       # --- FIN DE PASO DE DEPURACIÓN ---
 
       - name: Desplegar en Railway (PRODUCCIÓN REAL)
-        # El bloque 'env' ha sido removido de aquí.
         run: |
+          # Asegura que RAILWAY_TOKEN y RAILWAY_PROJECT estén disponibles en el entorno de este comando
           RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN }} \
           RAILWAY_PROJECT=${{ secrets.RAILWAY_PROJECT_ID }} \
-          npx @railway/cli@latest up . --service petpal-backend --environment production --detach
+          npx @railway/cli@3.8.0 up . --service petpal-backend --environment production --detach
