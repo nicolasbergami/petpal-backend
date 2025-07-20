@@ -26,28 +26,29 @@ jobs:
           --health-retries=3
 
     steps:
-      - uses: actions/checkout@v3
-        name: 🔄 Checkout repositorio
+      - name: 🔄 Checkout repositorio
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
-        name: 📦 Configurar Node.js
+      - name: 📦 Configurar Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - run: npm install --no-bin-links
-        name: 📥 Instalar dependencias
+      - name: 📥 Instalar dependencias
+        run: npm install --no-bin-links
 
-      - run: chmod +x ./node_modules/.bin/jest
-        name: 🔧 Dar permisos a Jest
+      - name: 🔧 Dar permisos a Jest
+        run: chmod +x ./node_modules/.bin/jest
 
-      - run: |
+      - name: 🔧 Esperar MySQL listo
+        run: |
           for i in {1..10}; do
             mysqladmin ping -h127.0.0.1 -uroot -proot && break
             echo "Waiting for MySQL..." && sleep 3
           done
-        name: 🔧 Esperar MySQL listo
 
-      - run: |
+      - name: 🛠️ Crear archivo .env
+        run: |
           cat <<EOF > .env
           DB_HOST=127.0.0.1
           DB_USER=root
@@ -56,48 +57,50 @@ jobs:
           DB_PORT=3306
           JWT_SECRET=testing-secret
           EOF
-        name: 🛠️ Crear archivo .env
 
-      - run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
-        name: 🔄 Seedear la DB
+      - name: 🔄 Seedear la DB
+        run: mysql -h127.0.0.1 -uroot -proot testdb < scripts/seed-ci.sql
 
-      - run: npm run test:unit
-        name: 🧪 Ejecutar Tests Unitarios
+      - name: 🧪 Ejecutar Tests Unitarios
+        run: npm run test:unit
 
-      - run: npm run coverage
-        name: 📊 Generar Cobertura
+      - name: 📊 Generar Cobertura
+        run: npm run coverage
 
-      - run: npm run test:integration
-        name: 🧪 Ejecutar Tests de Integración
+      - name: 🧪 Ejecutar Tests de Integración
+        run: npm run test:integration
 
   deploy-qa:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        name: 🔄 Checkout
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-      - run: |
-          npm install -g @railway/cli
-          railway login --apiKey $RAILWAY_TOKEN
-          railway up . --environment production --detach
-        name: 🚀 Deploy a QA
-        # Nota: si quieres un QA separado crea otra env en Railway y cámbiala.
+      # Si tienes un entorno QA en Railway, cámbialo aquí.
+      - name: 🚀 Deploy a QA (placeholder)
+        run: |
+          echo "Aquí harías el deploy a tu entorno QA en Railway"
+          # por ejemplo:
+          # npm install -g @railway/cli
+          # railway login --apiKey $RAILWAY_TOKEN
+          # railway up . --detach
 
   deploy-prod:
     needs: deploy-qa
     runs-on: ubuntu-latest
 
+    # Este environment coincide con el 'production' protegido en GitHub → se quedará "on hold"
     environment:
       name: production
       url: https://petpal-backend-production.up.railway.app
 
     steps:
-      - uses: actions/checkout@v3
-        name: 🔄 Checkout
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-      - run: |
+      - name: 🚀 Login Railway CLI y Deploy a Producción
+        run: |
           npm install -g @railway/cli
           railway login --apiKey $RAILWAY_TOKEN
           railway up . --detach
-        name: 🟢 Deploy a Producción
