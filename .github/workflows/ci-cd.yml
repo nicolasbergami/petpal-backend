@@ -9,9 +9,11 @@ on:
       - main
 
 jobs:
-  # Job 1: Build y Tests Unitarios/Integración Locales con MySQL en el Runner
   build-and-test-local:
     runs-on: ubuntu-latest
+    permissions: # <--- ¡AÑADE ESTO AQUÍ!
+      checks: write # Permite al job escribir Check Runs (necesario para test-reporter)
+      contents: read # Permite leer el código (ya suele ser el default, pero no está de más)
     services:
       mysql:
         image: mysql:8.0
@@ -40,7 +42,7 @@ jobs:
 
       - name: Wait for MySQL
         run: |
-          for i in {1..20}; do # Aumentamos el tiempo de espera por si acaso
+          for i in {1..20}; do
             mysqladmin ping -h127.0.0.1 -uroot -proot && break
             sleep 2
           done
@@ -56,26 +58,26 @@ jobs:
           JWT_SECRET=testing-secret
           EOF
 
-      - name: Load database schema for tests (Using the proven schema)
-        run: mysql -h127.0.0.1 -uroot -proot testdb < ./scripts/schema-ci-testdb.sql # Crea este archivo!
+      - name: Load database schema for tests
+        run: mysql -h127.0.0.1 -uroot -proot testdb < ./scripts/schema-ci-testdb.sql
 
       - name: Run Unit Tests
-        run: npm run test:unit -- --testResultsProcessor="jest-junit" --outputFile="junit.xml" # Ajusta el comando para generar JUnit XML
-        continue-on-error: false # ¡Importante! Si fallan, el job falla aquí.
+        run: npm run test:unit
+        continue-on-error: false
 
       - name: Publish Unit Test Results
         uses: dorny/test-reporter@v1
-        if: always() # Siempre publica los resultados, incluso si el paso anterior falla
+        if: always()
         with:
           name: Unit Tests Report
-          path: junit.xml # Ruta a tu reporte JUnit XML
-          reporter: jest-junit # O el formato que uses
+          path: junit.xml
+          reporter: jest-junit
 
       - name: Run Integration Tests (Local)
-        run: npm run test:integration -- --testResultsProcessor="jest-junit" --outputFile="junit-integration.xml" # Ajusta el comando
-        continue-on-error: false # ¡Importante! Si fallan, el job falla aquí.
+        run: npm run test:integration
+        continue-on-error: false
 
-      - name: Publish Integration Test Results (Local)
+      - name: Publish Local Integration Test Results
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -83,13 +85,15 @@ jobs:
           path: junit-integration.xml
           reporter: jest-junit
 
-  # Job 2: Deploy a QA y Pruebas de Integración Remotas
   deploy-to-qa-and-test:
-    needs: build-and-test-local # Solo si el build y tests locales son exitosos
+    needs: build-and-test-local
     runs-on: ubuntu-latest
-    environment: # Define un entorno 'qa' (opcional, pero buena práctica)
+    permissions: # <--- También AÑADE ESTO AQUÍ si este job también publica reportes o estados
+      checks: write
+      contents: read
+    environment:
       name: qa
-      url: https://petpal-backend-qa.up.railway.app # URL de tu backend de QA (aproximada, se puede obtener dinámicamente)
+      url: https://petpal-backend-qa.up.railway.app
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -100,32 +104,29 @@ jobs:
       - name: Login to Railway
         run: railway login --token ${{ secrets.RAILWAY_TOKEN }}
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }} # Asegúrate de que este Secret existe en GitHub
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Deploy to QA
-        run: railway up --environment qa --service petpal-backend # Asegúrate que 'petpal-backend' es el nombre de tu servicio en Railway QA
-        # Railway automáticamente usará las variables de entorno que ya configuraste para la DB de QA en este servicio
+        run: railway up --environment qa --service petpal-backend
 
       - name: Get QA Deployment URL
         id: get_qa_url
         run: |
-          # Asegúrate que 'petpal-backend' es el nombre de tu servicio de backend en Railway QA
           QA_URL=$(railway status --json | jq -r '.deployments[] | select(.serviceName == "petpal-backend" and .environmentName == "qa") | .publicUrl')
           echo "QA_URL=${QA_URL}" >> "$GITHUB_OUTPUT"
-        
+
       - name: Wait for QA Deployment to be ready
         run: |
-          # Pequeña espera para que el servicio recién desplegado esté accesible
           sleep 10
-          # Puedes agregar un curl o lógica para esperar un 200 OK de tu API de salud
-          curl -f -I "${{ steps.get_qa_url.outputs.QA_URL }}/health" || true # Ajusta /health a tu endpoint de salud
+          # Asegúrate de que tu backend tenga un endpoint /health
+          curl -f -I "${{ steps.get_qa_url.outputs.QA_URL }}/health" || true
 
       - name: Run Remote Integration Tests on QA
-        run: npm run test:integration-remote -- --testResultsProcessor="jest-junit" --outputFile="junit-integration-remote.xml" # Un nuevo script para tests de integración remotos
+        run: npm run test:integration-remote
         env:
-          BASE_URL: ${{ steps.get_qa_url.outputs.QA_URL }} # Pasa la URL de QA a tus tests
+          BASE_URL: ${{ steps.get_qa_url.outputs.QA_URL }}
           NODE_ENV: integration-remote
-        continue-on-error: false # El job falla si los tests remotos fallan
+        continue-on-error: false
 
       - name: Publish Remote Integration Test Results
         uses: dorny/test-reporter@v1
@@ -135,13 +136,16 @@ jobs:
           path: junit-integration-remote.xml
           reporter: jest-junit
 
-  # Job 3: Aprobación Manual y Deploy a Producción
   deploy-to-prod:
-    needs: deploy-to-qa-and-test # Solo si el despliegue a QA y sus tests son exitosos
+    needs: deploy-to-qa-and-test
     runs-on: ubuntu-latest
-    environment: # Configura el entorno 'production' con aprobación manual
+    permissions: # <--- Y AQUÍ si este job también necesita permisos de escritura (para el entorno production)
+      contents: read
+      deployments: write # Necesario para interactuar con los deployments de GitHub (especialmente en entornos)
+      statuses: write # Para actualizar el estado del commit
+    environment:
       name: production
-      url: https://petpal-backend-production.up.railway.app # URL de tu backend de PROD
+      url: https://petpal-backend-production.up.railway.app
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -155,9 +159,4 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Deploy to Production
-        # Este comando dispara el deploy en Railway para el entorno 'production'
-        # Railway detecta el push o el comando 'railway up' y gestiona el despliegue.
-        run: railway up --environment production --service petpal-backend # Asegúrate que 'petpal-backend' es el nombre de tu servicio de Producción
-
-      # Nota: No necesitamos el 'manual-approval' aquí si ya configuraste la aprobación en GitHub Environments.
-      # La aprobación ya se maneja directamente por la configuración del 'environment: production' de GitHub Actions.
+        run: railway up --environment production --service petpal-backend

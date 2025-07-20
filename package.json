@@ -8,7 +8,7 @@
     "test": "npm run test:unit",
     "test:unit": "jest tests/unit --coverage --reporters=default --reporters=jest-junit --outputFile=junit.xml",
     "test:integration": "jest tests/integration --forceExit --reporters=default --reporters=jest-junit --outputFile=junit-integration.xml",
-    "test:integration-remote": "jest tests/integration-remote --forceExit --reporters=default --reporters=jest-junit --outputFile=junit-integration-remote.xml",
+    "test:integration-remote": "jest tests/integration --forceExit --reporters=default --reporters=jest-junit --outputFile=junit-integration-remote.xml",
     "coverage": "jest --ci --coverage --forceExit"
   },
   "keywords": [],
@@ -29,7 +29,7 @@
   },
   "jest-junit": {
     "outputDirectory": "./",
-    "outputName": "junit.xml",
+    "outputName": "junit.xml", 
     "ancestorSeparator": " › ",
     "addFileAttribute": "true"
   }
