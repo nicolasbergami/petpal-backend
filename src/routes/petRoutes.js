@@ -2,15 +2,24 @@
 const express = require('express');
 const router = express.Router();
 const petController = require('../controllers/petController');
-const { verifyToken, isClient } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Rutas CRUD protegidas
-router.get('/user', verifyToken, petController.getPetsByUser);
+// 🟢 Obtener TODAS las mascotas (Admin)
 router.get('/', verifyToken, petController.getAllPets);
-router.get('/:id', verifyToken, petController.getPetById);
-router.post('/', verifyToken, isClient, petController.createPet); // 👈 Aquí está el error
-router.put('/:id', verifyToken, isClient, petController.updatePet);
-router.delete('/:id', verifyToken, isClient, petController.deletePet);
 
+// 🟢 Obtener MIS mascotas (Usuario logueado)
+router.get('/user/me', verifyToken, petController.getPetsByUser);
+
+// 🟢 Obtener una mascota por ID
+router.get('/:id', verifyToken, petController.getPetById);
+
+// 🟢 Crear mascota
+router.post('/', verifyToken, petController.createPet);
+
+// 🟢 Actualizar mascota
+router.put('/:id', verifyToken, petController.updatePet);
+
+// 🟢 Eliminar mascota
+router.delete('/:id', verifyToken, petController.deletePet);
 
 module.exports = router;

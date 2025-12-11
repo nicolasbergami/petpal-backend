@@ -1,14 +1,24 @@
 // src/controllers/reservationController.js
-
 const Reservation = require('../models/reservationModel');
+const Petpal = require('../models/petpalModel'); // Necesario para consultar precios
+const db = require('../config/db'); 
 
-const getAllReservations = (req, res) => {
-    Reservation.getAll((err, results) => {
+// ✅ OBTENER MIS RESERVAS (Automático según rol)
+const getMyReservations = (req, res) => {
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    Reservation.getByUser(userId, role, (err, results) => {
         if (err) {
-            res.status(500).json({ message: 'Error al obtener las reservas' });
-        } else {
-            res.status(200).json(results);
+            console.error("Error obteniendo reservas:", err);
+            return res.status(500).json({ message: 'Error al obtener historial' });
         }
+        res.status(200).json({ 
+            message: "Historial recuperado", 
+            count: results.length,
+            role_detected: role,
+            data: results 
+        });
     });
 };
 
@@ -17,194 +27,165 @@ const getReservationById = (req, res) => {
     Reservation.getById(reservationId, (err, results) => {
         if (err) {
             res.status(500).json({ message: 'Error al obtener la reserva' });
+        } else if (results.length === 0) {
+            res.status(404).json({ message: 'Reserva no encontrada' });
         } else {
             res.status(200).json(results[0]);
         }
     });
 };
 
-
-const updateReservation = (req, res) => {
-    const reservationId = req.params.id;
-    const reservationData = req.body;
-    Reservation.update(reservationId, reservationData, (err) => {
-        if (err) {
-            res.status(500).json({ message: 'Error al actualizar la reserva' });
-        } else {
-            res.status(200).json({ message: 'Reserva actualizada correctamente' });
-        }
-    });
-};
-
-const deleteReservation = (req, res) => {
-    const reservationId = req.params.id;
-    Reservation.delete(reservationId, (err) => {
-        if (err) {
-            res.status(500).json({ message: 'Error al eliminar la reserva' });
-        } else {
-            res.status(200).json({ message: 'Reserva eliminada correctamente' });
-        }
-    });
-};
+// 💰 CREAR RESERVA CON CÁLCULO DE PRECIO AUTOMÁTICO
 const createReservation = (req, res) => {
-    const { client_id, petpal_id, pet_id, service_type, date_start, date_end } = req.body;
+    const clientId = req.user.id;
+    const { 
+        petpal_id,    
+        profile_id,   // ID del ANUNCIO específico (clave para el precio)
+        pet_id, 
+        service_type, 
+        date_start, 
+        date_end 
+    } = req.body;
 
-    const newReservation = {
-        client_id,
-        petpal_id,
-        pet_id,
-        service_type,
-        date_start,
-        date_end,
-        status: 'pending'
-    };
+    // 1. Validaciones básicas
+    if (!profile_id || !date_start || !date_end || !pet_id) {
+        return res.status(400).json({ message: 'Faltan datos (Profile ID, Fechas o Mascota)' });
+    }
 
-    Reservation.create(newReservation, (err, results) => {
-        if (err) {
-            console.log(err.message);
-            res.status(500).json({ message: 'Error al crear la reserva' });
-        } else {
-            res.status(201).json({ message: 'Reserva creada correctamente', id: results.insertId });
+    const start = new Date(date_start);
+    const end = new Date(date_end);
+
+    if (end <= start) {
+        return res.status(400).json({ message: 'La fecha de fin debe ser posterior a la de inicio' });
+    }
+
+    // 2. Consultar el Anuncio para saber el PRECIO actual
+    Petpal.getById(profile_id, (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(404).json({ message: 'El servicio seleccionado no existe' });
         }
+
+        const profile = results[0];
+        
+        // Verificar que el anuncio pertenezca al petpal indicado
+        if (profile.user_id != petpal_id) {
+            return res.status(400).json({ message: 'El anuncio no coincide con el cuidador' });
+        }
+
+        // 3. Calcular Precio Total
+        // Diferencia en horas
+        const diffHours = Math.abs(end - start) / 36e5; 
+        
+        let totalPrice = 0;
+        
+        // Si es cuidador y cobra por día
+        if (service_type === 'caregiver' && profile.price_per_day) {
+            const days = Math.max(1, Math.ceil(diffHours / 24)); 
+            totalPrice = days * profile.price_per_day;
+        } else {
+            // Por defecto hora (dog walker)
+            const hours = Math.max(1, Math.ceil(diffHours)); // Mínimo 1 hora
+            totalPrice = hours * (profile.price_per_hour || 0);
+        }
+
+        console.log(`💰 Calculando precio: ${diffHours.toFixed(2)} horas -> Total: $${totalPrice}`);
+
+        // 4. Crear objeto de reserva
+        const newReservation = {
+            client_id: clientId,
+            petpal_id,
+            profile_id,
+            pet_id,
+            service_type,
+            date_start,
+            date_end,
+            total_price: totalPrice // Guardamos el precio pactado
+        };
+
+        // 5. Guardar en BD
+        Reservation.create(newReservation, (errCreate, resCreate) => {
+            if (errCreate) {
+                console.error("Error creando reserva:", errCreate);
+                return res.status(500).json({ message: 'Error al procesar la reserva' });
+            }
+            res.status(201).json({ 
+                message: 'Solicitud de reserva enviada', 
+                id: resCreate.insertId,
+                total_price: totalPrice,
+                status: 'pending'
+            });
+        });
     });
 };
 
+// ✅ ACEPTAR / RECHAZAR RESERVA (Solo Petpal)
 const updateReservationStatus = (req, res) => {
     const reservationId = req.params.id;
     const { status } = req.body;
+    const userId = req.user.id; // El usuario que intenta aceptar/rechazar
 
-    if (status !== 'accepted' && status !== 'rejected') {
+    if (!['accepted', 'rejected', 'completed'].includes(status)) {
         return res.status(400).json({ message: 'Estado no válido' });
     }
 
-    Reservation.updateStatus(reservationId, status, (err, results) => {
-        if (err) {
-            res.status(500).json({ message: 'Error al actualizar la reserva' });
-        } else {
-            res.status(200).json({ message: `Reserva ${status} correctamente` });
+    // Primero verificamos que la reserva le pertenezca al Petpal
+    Reservation.getById(reservationId, (err, results) => {
+        if (err || results.length === 0) return res.status(404).json({ message: 'Reserva no encontrada' });
+
+        const reserva = results[0];
+
+        // Seguridad: Solo el Petpal asignado puede aceptar/rechazar
+        if (reserva.petpal_id !== userId) {
+            return res.status(403).json({ message: 'No tienes permiso para gestionar esta reserva' });
         }
+
+        Reservation.updateStatus(reservationId, status, (errUpd) => {
+            if (errUpd) return res.status(500).json({ message: 'Error al actualizar estado' });
+            
+            res.status(200).json({ message: `Reserva marcada como: ${status}` });
+        });
     });
 };
-const db = require('../config/db');
 
-const getReservationsByClient = (req, res) => {
-  const clientId = req.user.id;
-  console.log("🟢 Cliente logueado (ID):", clientId);
+// ✅ ELIMINAR RESERVA (Solo si está pendiente)
+const deleteReservation = (req, res) => {
+    const reservationId = req.params.id;
+    const userId = req.user.id;
 
-  const sql = `
-    SELECT
-      r.id,
-      r.petpal_id,
-      u_petpal.name   AS petpal_name,
-      r.pet_id,
-      p.name          AS pet_name,
-      u_client.name   AS client_name,
-      r.date_start,
-      r.status
-    FROM reservations r
-    JOIN users u_client ON r.client_id = u_client.id
-    JOIN users u_petpal ON r.petpal_id = u_petpal.id
-    JOIN pets p         ON r.pet_id     = p.id
-    WHERE r.client_id = ?
-    ORDER BY r.date_start DESC
-  `;
+    Reservation.getById(reservationId, (err, results) => {
+        if (err || results.length === 0) return res.status(404).json({ message: 'Reserva no encontrada' });
+        
+        const reserva = results[0];
 
-  db.query(sql, [clientId], (err, results) => {
-    if (err) {
-      console.error("❌ Error en la consulta SQL:", err.message);
-      return res.status(500).json({ message: 'Error en la consulta de reservas' });
-    }
+        // Solo el dueño (cliente) o el petpal pueden borrar
+        if (reserva.client_id !== userId && reserva.petpal_id !== userId) {
+            return res.status(403).json({ message: 'No autorizado' });
+        }
 
-    if (results.length === 0) {
-      console.log("🟢 No se encontraron reservas para este cliente.");
-      return res.status(404).json({ message: "No se encontraron reservas para este cliente." });
-    }
+        // Regla: No borrar si ya está aceptada (deberían cancelar, no borrar)
+        if (reserva.status === 'accepted' && reserva.client_id === userId) {
+             return res.status(400).json({ message: 'No puedes eliminar una reserva aceptada. Contacta soporte.' });
+        }
 
-    console.log("🟢 Reservas encontradas:", results);
-    res.status(200).json({ message: "Reservas encontradas", data: results });
-  });
+        Reservation.delete(reservationId, (errDel) => {
+            if (errDel) return res.status(500).json({ message: 'Error al eliminar' });
+            res.status(200).json({ message: 'Reserva eliminada correctamente' });
+        });
+    });
 };
 
-const getReservationsForPetpal = (req, res) => {
-  const petpalId = req.user.id;
-  console.log("🟢 Petpal logueado (ID):", petpalId);
-
-  const sql = `
-    SELECT
-      r.id,
-      r.client_id,
-      u_client.name AS client_name,
-      r.pet_id,
-      p.name       AS pet_name,
-      u_petpal.name AS petpal_name,
-      pp.experience AS petpal_experience,
-      r.status,
-      r.date_start
-    FROM reservations r
-    JOIN users u_client   ON r.client_id = u_client.id
-    JOIN users u_petpal   ON r.petpal_id = u_petpal.id
-    JOIN pets p           ON r.pet_id = p.id
-    JOIN petpal_profiles pp ON r.petpal_id = pp.user_id
-    WHERE r.petpal_id = ?
-    ORDER BY r.date_start DESC
-  `;
-
-  db.query(sql, [petpalId], (err, results) => {
-    if (err) {
-      console.error("❌ Error al obtener reservas para petpal:", err.message);
-      return res.status(500).json({ message: 'Error al obtener reservas para petpal' });
-    }
-    if (results.length === 0) {
-      console.log("🟢 No hay reservas asignadas a este petpal.");
-      return res
-        .status(404)
-        .json({ message: "No se encontraron reservas para este petpal." });
-    }
-    console.log("🟢 Reservas para petpal encontradas:", results);
-    res.status(200).json({ message: "Reservas encontradas", data: results });
-  });
+// Rutas deprecadas que mantenemos por compatibilidad (pero apuntan al nuevo getMyReservations)
+const getReservationsByClient = getMyReservations;
+const getReservationsForPetpal = getMyReservations;
+const getDetailedReservations = getMyReservations;
+const getAllReservations = (req, res) => {
+    // Solo admins deberían ver esto, pero lo dejamos por ahora
+    Reservation.getAll((err, results) => {
+        if (err) return res.status(500).json({message: 'Error'});
+        res.json(results);
+    });
 };
-
-const getDetailedReservations = (req, res) => {
-  const userId = req.user.id;
-  const role   = req.user.role;
-
-  // Filtramos según el rol
-  const whereClause = role === 'client'
-    ? 'r.client_id = ?'
-    : 'r.petpal_id  = ?';
-
-  const sql = `
-    SELECT
-      r.id,
-      r.client_id,
-      u_client.name AS client_name,
-      r.petpal_id,
-      u_petpal.name AS petpal_name,
-      r.pet_id,
-      p.name AS pet_name,
-      pp.experience AS petpal_experience,
-      r.status,
-      r.date_start
-    FROM reservations r
-    JOIN users u_client   ON r.client_id = u_client.id
-    JOIN users u_petpal   ON r.petpal_id = u_petpal.id
-    JOIN pets p           ON r.pet_id = p.id
-    JOIN petpal_profiles pp ON r.petpal_id = pp.user_id
-    WHERE ${whereClause}
-    ORDER BY r.date_start DESC
-  `;
-
-  db.query(sql, [userId], (err, results) => {
-    if (err) {
-      console.error('❌ Error al obtener reservas detalladas:', err);
-      return res.status(500).json({ message: 'Error al obtener reservas detalladas' });
-    }
-    res.status(200).json(results);
-  });
-};
-
-
+const updateReservation = (req, res) => { res.status(400).json({message: "Use updateReservationStatus"}); };
 
 
 module.exports = {

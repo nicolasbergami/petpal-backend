@@ -1,49 +1,65 @@
-// src/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 dotenv.config();
 
 const verifyToken = (req, res, next) => {
-    console.log("🟢 Middleware: Iniciando verificación de token...");
-
-    const token = req.headers['authorization'];
-    if (!token) {
+    // 1. Obtener el header
+    const authHeader = req.headers['authorization'];
+    
+    if (!authHeader) {
         console.log("❌ Middleware: Token no proporcionado");
         return res.status(403).json({ message: 'Token no proporcionado' });
     }
 
-    const cleanToken = token.replace('Bearer ', '');
-    console.log("🟢 Middleware: Token recibido ->", cleanToken);
+    // 2. Extraer el token (Soporta "Bearer <token>")
+    // Usamos split para ser más precisos que replace
+    const token = authHeader.split(' ')[1]; 
+    
+    if (!token) {
+        console.log("❌ Middleware: Formato de token inválido");
+        return res.status(403).json({ message: 'Token malformado' });
+    }
 
-    jwt.verify(cleanToken, process.env.JWT_SECRET, (err, decoded) => {
+    // 3. Verificar
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-            console.log("❌ Middleware: Error al verificar el token:", err.message);
+            console.log("❌ Middleware: Error al verificar token ->", err.message);
             return res.status(401).json({ message: 'Token inválido o expirado' });
         }
         
-        console.log("🟢 Middleware: Token verificado correctamente:", decoded);
-        req.user = decoded;
+        // 4. Guardar datos decodificados en la request
+        req.user = decoded; 
+        console.log(`🟢 Middleware: Usuario autenticado ID: ${decoded.id} | Rol: ${decoded.role}`);
+        
         next();
     });
-
-    console.log("🟢 Middleware: Finalización del middleware"); // 👈 Este debería salir siempre
 };
 
 const isClient = (req, res, next) => {
-    console.log("🟢 Middleware: Verificando si es cliente:", req.user.role);
-    if (req.user.role === 'client') {
+    // 🛡️ Safety check: Evita que el server se caiga si olvidamos poner verifyToken antes
+    if (!req.user) {
+        return res.status(500).json({ message: 'Error de servidor: No se verificó el usuario' });
+    }
+
+    if (req.user.role === 'client' || req.user.role === 'admin') {
         next();
     } else {
-        console.log("❌ Middleware: Acceso denegado (no es cliente)");
-        res.status(403).json({ message: 'Acceso denegado: solo para clientes' });
+        console.log(`⛔ Acceso denegado: Usuario ${req.user.id} intentó entrar a ruta de Cliente`);
+        res.status(403).json({ message: 'Acceso denegado: Se requiere rol Cliente' });
     }
 };
 
 const isPetpal = (req, res, next) => {
-    if (req.user.role === 'petpal') {
+    // 🛡️ Safety check
+    if (!req.user) {
+        return res.status(500).json({ message: 'Error de servidor: No se verificó el usuario' });
+    }
+
+    if (req.user.role === 'petpal' || req.user.role === 'admin') {
         next();
     } else {
-        res.status(403).json({ message: 'Acceso denegado: solo para Petpals' });
+        console.log(`⛔ Acceso denegado: Usuario ${req.user.id} intentó entrar a ruta de Petpal`);
+        res.status(403).json({ message: 'Acceso denegado: Se requiere rol Petpal' });
     }
 };
 

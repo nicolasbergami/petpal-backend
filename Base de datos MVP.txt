@@ -1,0 +1,143 @@
+`railway` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+
+
+
+CREATE TABLE `petpal_profiles` (
+
+  `id` int NOT NULL AUTO_INCREMENT,
+
+  `user_id` int NOT NULL,
+
+  `service_type` enum('dog walker','caregiver') COLLATE utf8mb4_general_ci NOT NULL,
+
+  `price_per_hour` decimal(10,2) DEFAULT NULL,
+
+  `price_per_day` decimal(10,2) DEFAULT NULL,
+
+  `experience` text COLLATE utf8mb4_general_ci,
+
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  `location` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+
+  `pet_type` enum('dog','cat') COLLATE utf8mb4_general_ci NOT NULL,
+
+  `size_accepted` enum('small','medium','large','all') COLLATE utf8mb4_general_ci DEFAULT 'all',
+
+  PRIMARY KEY (`id`),
+
+  UNIQUE KEY `user_id` (`user_id`),
+
+  CONSTRAINT `petpal_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+
+CREATE TABLE `pets` (
+
+  `id` int NOT NULL AUTO_INCREMENT,
+
+  `user_id` int NOT NULL,
+
+  `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+
+  `breed` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `age` int DEFAULT NULL,
+
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  `weight` int DEFAULT NULL,
+
+  `pet_type` enum('dog','cat') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'dog',
+
+  `description` text COLLATE utf8mb4_general_ci,
+
+  PRIMARY KEY (`id`),
+
+  KEY `user_id` (`user_id`),
+
+  CONSTRAINT `pets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+
+CREATE TABLE `reservations` (
+
+  `id` int NOT NULL AUTO_INCREMENT,
+
+  `client_id` int NOT NULL,
+
+  `petpal_id` int NOT NULL,
+
+  `pet_id` int NOT NULL,
+
+  `service_type` enum('dog walker','caregiver') COLLATE utf8mb4_general_ci NOT NULL,
+
+  `date_start` datetime NOT NULL,
+
+  `date_end` datetime NOT NULL,
+
+  `status` enum('pending','accepted','rejected','completed') COLLATE utf8mb4_general_ci DEFAULT 'pending',
+
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+
+  KEY `client_id` (`client_id`),
+
+  KEY `petpal_id` (`petpal_id`),
+
+  KEY `pet_id` (`pet_id`),
+
+  CONSTRAINT `reservations_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+
+  CONSTRAINT `reservations_ibfk_2` FOREIGN KEY (`petpal_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+
+  CONSTRAINT `reservations_ibfk_3` FOREIGN KEY (`pet_id`) REFERENCES `pets` (`id`) ON DELETE CASCADE
+
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+
+CREATE TABLE `users` (
+
+  `id` int NOT NULL AUTO_INCREMENT,
+
+  `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+
+  `email` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+
+  `password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+
+  `role` enum('client','petpal') COLLATE utf8mb4_general_ci NOT NULL,
+
+  `profile_picture` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  `dni` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `direccion` varchar(150) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `barrio` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `telefono` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+
+  `ciudad` varchar(100) COLLATE utf8mb4_general_ci DEFAULT 'Córdoba',
+
+  PRIMARY KEY (`id`),
+
+  UNIQUE KEY `email` (`email`)
+
+) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

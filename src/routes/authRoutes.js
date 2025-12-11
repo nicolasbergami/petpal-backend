@@ -3,15 +3,10 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
-// Rutas
-router.post('/register', (req, res) => {
-    console.log("POST /register recibido"); // 👈 Log para verificar
-    authController.register(req, res);
-});
+// 🟢 Registro (Ahora guarda lat/lng si se envían)
+router.post('/register', authController.register);
 
-router.post('/login', (req, res) => {
-    console.log("POST /login recibido"); // 👈 Log para verificar
-    authController.login(req, res);
-});
+// 🟢 Login (Devuelve token y datos del usuario)
+router.post('/login', authController.login);
 
 module.exports = router;

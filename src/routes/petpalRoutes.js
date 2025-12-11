@@ -2,23 +2,28 @@
 const express = require('express');
 const router = express.Router();
 const petpalController = require('../controllers/petpalController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, isPetpal } = require('../middleware/authMiddleware');
 
-// Rutas CRUD
-
+// 🟢 Listar todos los anuncios
 router.get('/', verifyToken, petpalController.getAllPetpals);
-router.get('/user', verifyToken, petpalController.getPetpalsByUser);
+
+// 🟢 Mis anuncios (para el panel del paseador)
+router.get('/my-ads', verifyToken, petpalController.getPetpalsByUser);
+
+// 🟢 Búsqueda Inteligente (Geo + Mascota)
+// Ejemplo: GET /petpals/search/match/3?lat=-31.4&lng=-64.1
+router.get('/search/match/:id', verifyToken, petpalController.searchByPetId);
+
+// 🟢 Ver detalle de un anuncio
 router.get('/:id', verifyToken, petpalController.getPetpalById);
-router.post('/', verifyToken, petpalController.createPetpal);
-router.put('/:id', verifyToken, petpalController.updatePetpal);
-router.delete('/:id', verifyToken, petpalController.deletePetpal);
 
+// 🟢 Crear anuncio (Solo Petpals)
+router.post('/', verifyToken, isPetpal, petpalController.createPetpal);
 
+// 🟢 Editar anuncio
+router.put('/:id', verifyToken, isPetpal, petpalController.updatePetpal);
 
-
-// Ruta de búsqueda con filtros
-router.post('/search', verifyToken, petpalController.searchPetpals);
-router.get('/search/:id', verifyToken, petpalController.searchByPetId);
-
+// 🟢 Eliminar anuncio
+router.delete('/:id', verifyToken, isPetpal, petpalController.deletePetpal);
 
 module.exports = router;
