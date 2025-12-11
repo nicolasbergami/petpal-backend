@@ -189,6 +189,7 @@ const updateReservation = (req, res) => { res.status(400).json({message: "Use up
 
 
 module.exports = {
+    getMyReservations, // <--- ¡ESTA ES LA QUE FALTABA!
     getAllReservations,
     getReservationById,
     createReservation,
