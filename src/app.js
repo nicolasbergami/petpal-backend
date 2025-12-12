@@ -6,6 +6,7 @@ const petRoutes = require('./routes/petRoutes');
 const petpalRoutes = require('./routes/petpalRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
 const authRoutes = require('./routes/authRoutes');
+const availabilityRoutes = require('./routes/availabilityRoutes');
 
 dotenv.config();
 const app = express();
