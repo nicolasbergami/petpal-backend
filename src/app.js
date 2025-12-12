@@ -27,6 +27,9 @@ console.log("   ➡️  /api/petpals registrado correctamente");
 app.use('/api/reservations', reservationRoutes);
 console.log("   ➡️  /api/reservations registrado correctamente");
 
+app.use('/api/availability', availabilityRoutes)
+console.log("   ➡️  /api/avaliability correctamente");
+
 app.use('/api/auth', authRoutes);
 console.log("   ➡️  /api/auth registrado correctamente");
 
