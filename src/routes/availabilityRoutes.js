@@ -9,4 +9,6 @@ router.get('/:petpalId', verifyToken, availabilityController.getAvailability);
 // Privado: Paseador configura sus horarios
 router.post('/', verifyToken, isPetpal, availabilityController.setAvailability);
 
+router.get('/slots', verifyToken, availabilityController.getSlotsForDate);
+
 module.exports = router;

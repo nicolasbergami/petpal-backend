@@ -1,47 +1,62 @@
 const db = require('../config/db');
 
-// Obtener disponibilidad de un PetPal
-const getAvailability = (req, res) => {
-    const petpalId = req.params.petpalId;
+// 🟢 Obtener Slots (Horarios) para un día específico
+const getSlotsForDate = (req, res) => {
+    const { petpalId, date } = req.query; // date format: '2023-10-25'
 
-    const query = `
-        SELECT day_of_week, 
-               DATE_FORMAT(start_time, '%H:%i') as start_time, 
-               DATE_FORMAT(end_time, '%H:%i') as end_time
+    // 1. Obtener horario laboral de ese día de la semana (0=Dom, 1=Lun...)
+    const dayOfWeek = new Date(date).getDay();
+    
+    const querySchedule = `
+        SELECT start_time, end_time 
         FROM availabilities 
-        WHERE petpal_id = ? 
-        ORDER BY day_of_week ASC
+        WHERE petpal_id = ? AND day_of_week = ?
     `;
 
-    db.query(query, [petpalId], (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ message: 'Error al obtener horarios' });
+    // 2. Obtener reservas YA hechas para ese día (para marcarlas en ROJO)
+    const queryReservations = `
+        SELECT DATE_FORMAT(date_start, '%H:%i') as busy_start 
+        FROM reservations 
+        WHERE petpal_id = ? 
+        AND status IN ('pending', 'accepted')
+        AND DATE(date_start) = ?
+    `;
+
+    db.query(querySchedule, [petpalId, dayOfWeek], (err, scheduleRes) => {
+        if (err) return res.status(500).json({ error: 'Error DB' });
+
+        // Si no trabaja ese día
+        if (scheduleRes.length === 0) {
+            return res.json({ working: false, slots: [] });
         }
-        res.json(results);
-    });
-};
 
-// Configurar disponibilidad (Para el futuro, cuando hagas la pantalla del paseador)
-const setAvailability = (req, res) => {
-    const petpalId = req.user.id;
-    const { days } = req.body; // Array de { day_of_week, start_time, end_time }
+        const { start_time, end_time } = scheduleRes[0];
 
-    // 1. Borramos horarios viejos
-    db.query('DELETE FROM availabilities WHERE petpal_id = ?', [petpalId], (err) => {
-        if (err) return res.status(500).json({ message: 'Error limpiando horarios' });
+        // Consultamos reservas ocupadas
+        db.query(queryReservations, [petpalId, date], (err2, busyRes) => {
+            if (err2) return res.status(500).json({ error: 'Error DB Reservations' });
 
-        if (!days || days.length === 0) return res.json({ message: 'Horarios actualizados' });
+            const busyHours = busyRes.map(r => r.busy_start); // Ej: ['14:00', '15:00']
 
-        // 2. Insertamos nuevos
-        const values = days.map(d => [petpalId, d.day_of_week, d.start_time, d.end_time]);
-        const query = 'INSERT INTO availabilities (petpal_id, day_of_week, start_time, end_time) VALUES ?';
+            // Generar slots de 1 hora
+            let slots = [];
+            let current = parseInt(start_time.split(':')[0]);
+            const end = parseInt(end_time.split(':')[0]);
 
-        db.query(query, [values], (err2) => {
-            if (err2) return res.status(500).json({ message: 'Error guardando horarios' });
-            res.json({ message: 'Horarios actualizados correctamente' });
+            while (current < end) {
+                const timeStr = `${current.toString().padStart(2, '0')}:00`;
+                const isBusy = busyHours.includes(timeStr);
+                
+                slots.push({
+                    time: timeStr,
+                    status: isBusy ? 'busy' : 'free' // 🔴 busy = ROJO, 🟢 free = VERDE
+                });
+                current++;
+            }
+
+            res.json({ working: true, slots });
         });
     });
 };
 
-module.exports = { getAvailability, setAvailability };
+module.exports = { getSlotsForDate };
