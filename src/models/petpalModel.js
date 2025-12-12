@@ -2,7 +2,8 @@
 const db = require('../config/db');
 
 const Petpal = {
-    // ✅ Trae todos los anuncios ACTIVOS + Datos del Usuario (Nombre/Foto)
+    // 🟢 OBTENER TODOS (Para el Home o Admin)
+    // Agregamos JOIN para traer nombre y foto del dueño del anuncio
     getAll: (callback) => {
         const query = `
             SELECT p.*, u.name as user_name, u.profile_picture 
@@ -13,7 +14,8 @@ const Petpal = {
         db.query(query, callback);
     },
 
-    // ✅ Trae el detalle de un anuncio específico + Datos de contacto del Usuario
+    // 🟢 OBTENER POR ID (Detalle del Anuncio)
+    // Traemos también datos de contacto del usuario
     getById: (id, callback) => {
         const query = `
             SELECT p.*, u.name as user_name, u.profile_picture, u.email, u.telefono, u.barrio
@@ -24,13 +26,13 @@ const Petpal = {
         db.query(query, [id], callback);
     },
 
-    // ✅ Trae todos los anuncios de un usuario específico (Mis Publicaciones)
+    // 🟢 MIS PUBLICACIONES (Perfil del Petpal)
     getByUserId: (userId, callback) => {
         const query = 'SELECT * FROM petpal_profiles WHERE user_id = ? ORDER BY created_at DESC';
         db.query(query, [userId], callback);
     },
 
-    // ✅ CREAR: Ahora soporta Title, Lat, Lng y Range
+    // 🟢 CREAR ANUNCIO (Actualizado con Title y Geo)
     create: (data, callback) => {
         const query = `
             INSERT INTO petpal_profiles 
@@ -39,7 +41,7 @@ const Petpal = {
         
         db.query(query, [
             data.user_id,
-            data.title,         // Nuevo
+            data.title || 'Mi Servicio', // Título por defecto si no viene
             data.service_type,
             data.price_per_hour,
             data.price_per_day,
@@ -47,19 +49,18 @@ const Petpal = {
             data.location,
             data.pet_type,
             data.size_accepted,
-            data.latitude,      // Nuevo (Coordenadas)
-            data.longitude,     // Nuevo (Coordenadas)
-            data.range_km       // Nuevo (Radio de cobertura)
+            data.latitude || null,      // Coordenadas opcionales pero recomendadas
+            data.longitude || null,
+            data.range_km || 5          // Radio por defecto 5km
         ], callback);
     },
 
-    // ✅ ACTUALIZAR: Soporta todos los campos nuevos
+    // 🟢 ACTUALIZAR ANUNCIO
     update: (id, data, callback) => {
-        // Construimos la query dinámica para solo actualizar lo que llegue
         const query = `
             UPDATE petpal_profiles 
             SET title = ?, service_type = ?, price_per_hour = ?, price_per_day = ?, experience = ?, 
-                location = ?, pet_type = ?, size_accepted = ?, latitude = ?, longitude = ?, range_km = ?, status = ?
+                location = ?, pet_type = ?, size_accepted = ?, latitude = ?, longitude = ?, range_km = ?
             WHERE id = ?`;
             
         db.query(query, [
@@ -74,7 +75,6 @@ const Petpal = {
             data.latitude,
             data.longitude,
             data.range_km,
-            data.status, // Permite pausar el anuncio ('paused')
             id
         ], callback);
     },
@@ -83,19 +83,28 @@ const Petpal = {
         db.query('DELETE FROM petpal_profiles WHERE id = ?', [id], callback);
     },
 
-    // 📍 BÚSQUEDA GEOLOCALIZADA (La Joya de la Corona 👑)
-    // Reemplaza al search antiguo. Usa matemáticas para buscar por radio.
+    // 📍 BÚSQUEDA INTELIGENTE (MATCH > DISTANCIA)
+    // Esta función reemplaza a tu antiguo 'search' simple.
     searchGeo: (filters, callback) => {
         const { lat, lng, service_type, pet_type, size, radius_km } = filters;
         
-        // Radio por defecto 10km si no se especifica
-        const searchRadius = radius_km || 10; 
+        // Si no hay coordenadas, buscamos solo por texto/filtros (Fallback)
+        if (!lat || !lng) {
+            let simpleQuery = `
+                SELECT p.*, u.name as user_name, u.profile_picture 
+                FROM petpal_profiles p
+                JOIN users u ON p.user_id = u.id
+                WHERE p.status = 'active' 
+                AND p.service_type = ? 
+                AND p.pet_type = ? 
+                AND (p.size_accepted = ? OR p.size_accepted = 'all')
+            `;
+            return db.query(simpleQuery, [service_type, pet_type, size], callback);
+        }
 
-        /* EXPLICACIÓN DE LA FÓRMULA SQL (Haversine):
-           Calcula la distancia entre el punto A (Cliente) y el punto B (Paseador)
-           usando la curvatura de la Tierra.
-           6371 es el radio de la Tierra en KM.
-        */
+        // Si HAY coordenadas, usamos la fórmula matemática Haversine
+        const searchRadius = radius_km || 50; // Buscamos hasta 50km a la redonda
+
         let query = `
             SELECT 
                 p.*, 
@@ -110,26 +119,29 @@ const Petpal = {
             WHERE p.status = 'active'
         `;
 
-        // Parámetros iniciales para la fórmula matemática (Lat Cliente, Lng Cliente, Lat Cliente)
         const params = [lat, lng, lat]; 
 
-        // Filtros opcionales
+        // 1️⃣ FILTRO ESTRICTO: Tipo de Servicio (Paseo vs Cuidado)
         if (service_type) {
             query += " AND p.service_type = ?";
             params.push(service_type);
         }
+
+        // 2️⃣ FILTRO ESTRICTO: Especie (Perro vs Gato)
         if (pet_type) {
             query += " AND p.pet_type = ?";
             params.push(pet_type);
         }
         
-        // Lógica de tamaño: Coincidencia exacta O si el paseador acepta "todos"
+        // 3️⃣ FILTRO ESTRICTO: Tamaño
+        // Muestra solo los que acepten el tamaño de tu perro O acepten 'todos'
         if (size) {
             query += " AND (p.size_accepted = ? OR p.size_accepted = 'all')";
             params.push(size);
         }
 
-        // Filtro final: Que la distancia sea menor al radio y ordenamos por cercanía
+        // 4️⃣ ORDENAMIENTO: Por distancia (los más cercanos primero)
+        // Usamos HAVING para descartar los que están lejísimos (>50km)
         query += " HAVING distance < ? ORDER BY distance ASC";
         params.push(searchRadius);
 
