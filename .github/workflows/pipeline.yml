@@ -1,0 +1,83 @@
+name: PetPal Backend CI/CD Pipeline
+
+# Configuración de Disparadores (Triggers)
+# Se ejecuta en Push y PR hacia ramas críticas, ignorando cambios en documentación.
+on:
+  push:
+    branches: [ "develop", "main" ]
+    paths-ignore: [ "**.md", "docs/**" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+    paths-ignore: [ "**.md", "docs/**" ]
+
+# Variables de configuración global
+env:
+  NODE_VERSION: '20.x' # Ajustado a la versión LTS más reciente o la que uses (18.x o 20.x)
+
+jobs:
+  # ------------------------------------------------------------------
+  # STAGE 1: CONTINUOUS INTEGRATION (CI)
+  # Construcción, instalación de dependencias y ejecución de pruebas.
+  # ------------------------------------------------------------------
+  build-and-test:
+    name: 🏗️ Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout del Código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Instalar Dependencias (Clean Install)
+        run: npm ci
+
+      - name: 🧪 Ejecutar Suite de Pruebas (Unit & Integration)
+        run: npm test
+        # Si este paso falla, el pipeline se detiene automáticamente.
+
+  # ------------------------------------------------------------------
+  # STAGE 2: CONTINUOUS DELIVERY (CD) - QA ENVIRONMENT
+  # Despliegue automático a la rama de desarrollo.
+  # ------------------------------------------------------------------
+  deploy-qa:
+    name: 🚀 Deploy to QA
+    needs: build-and-test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    environment: 
+      name: qa 
+      url: https://petpal-backend-qa.up.railway.app
+    
+    steps:
+      - name: 📢 Notificación de Despliegue
+        run: |
+          echo "✅ Tests validados correctamente."
+          echo "🚀 Iniciando despliegue automático en entorno QA (Railway)..."
+
+  # ------------------------------------------------------------------
+  # STAGE 3: CONTINUOUS DEPLOYMENT (CD) - PRODUCTION ENVIRONMENT
+  # Despliegue a producción protegido por aprobación manual.
+  # ------------------------------------------------------------------
+  deploy-production:
+    name: 🚀 Deploy to Production
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    # Gatekeeper: Requiere aprobación manual en GitHub Environments
+    environment: 
+      name: production
+      url: https://petpal-backend-prod.up.railway.app
+    
+    steps:
+      - name: 🛡️ Verificación de Seguridad
+        run: echo "🔒 Aprobación manual verificada."
+
+      - name: 🚀 Confirmación de Despliegue
+        run: echo "✅ Desplegando versión estable a Producción en Railway."
