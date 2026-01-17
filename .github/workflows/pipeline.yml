@@ -1,83 +1,68 @@
-name: PetPal Backend CI/CD Pipeline
+name: 🚀 PetPal CI/CD Master Pipeline
 
-# Configuración de Disparadores (Triggers)
-# Se ejecuta en Push y PR hacia ramas críticas, ignorando cambios en documentación.
 on:
   push:
     branches: [ "develop", "main" ]
-    paths-ignore: [ "**.md", "docs/**" ]
   pull_request:
-    branches: [ "develop", "main" ]
-    paths-ignore: [ "**.md", "docs/**" ]
+    branches: [ "main" ]
 
-# Variables de configuración global
+# Concurrencia: Si empujas código nuevo mientras corre un pipeline viejo, cancela el viejo para ahorrar tiempo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  NODE_VERSION: '20.x' # Ajustado a la versión LTS más reciente o la que uses (18.x o 20.x)
+  NODE_VERSION: '20.x'
 
 jobs:
-  # ------------------------------------------------------------------
-  # STAGE 1: CONTINUOUS INTEGRATION (CI)
-  # Construcción, instalación de dependencias y ejecución de pruebas.
-  # ------------------------------------------------------------------
-  build-and-test:
+  # --- FASE 1: CALIDAD Y PRUEBAS ---
+  test-and-build:
     name: 🏗️ Build & Test
     runs-on: ubuntu-latest
-    
     steps:
-      - name: 📥 Checkout del Código
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🟢 Configurar Node.js ${{ env.NODE_VERSION }}
+      - name: 🟢 Node.js Setup (con Caché)
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: 📦 Instalar Dependencias (Clean Install)
+      - name: 📦 Instalar Dependencias
         run: npm ci
 
-      - name: 🧪 Ejecutar Suite de Pruebas (Unit & Integration)
+      - name: 🧪 Correr Tests (con Cobertura)
         run: npm test
-        # Si este paso falla, el pipeline se detiene automáticamente.
+        # Si esto falla, NADA se despliega.
 
-  # ------------------------------------------------------------------
-  # STAGE 2: CONTINUOUS DELIVERY (CD) - QA ENVIRONMENT
-  # Despliegue automático a la rama de desarrollo.
-  # ------------------------------------------------------------------
+  # --- FASE 2: DESPLIEGUE AUTOMÁTICO A QA ---
   deploy-qa:
-    name: 🚀 Deploy to QA
-    needs: build-and-test
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    name: 🚀 Deploy QA
+    needs: test-and-build
+    if: github.ref == 'refs/heads/develop' # Solo corre en develop
     runs-on: ubuntu-latest
-    
     environment: 
-      name: qa 
+      name: qa
       url: https://petpal-backend-qa.up.railway.app
     
     steps:
-      - name: 📢 Notificación de Despliegue
-        run: |
-          echo "✅ Tests validados correctamente."
-          echo "🚀 Iniciando despliegue automático en entorno QA (Railway)..."
+      - name: 🚀 Simulación de Deploy a Railway (QA)
+        run: echo "✅ Desplegando versión de prueba en QA..."
 
-  # ------------------------------------------------------------------
-  # STAGE 3: CONTINUOUS DEPLOYMENT (CD) - PRODUCTION ENVIRONMENT
-  # Despliegue a producción protegido por aprobación manual.
-  # ------------------------------------------------------------------
+  # --- FASE 3: DESPLIEGUE A PRODUCCIÓN (CON CANDADO) ---
   deploy-production:
-    name: 🚀 Deploy to Production
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    name: 🛡️ Deploy Production
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' # Solo corre cuando el código YA está en main
     runs-on: ubuntu-latest
-    
-    # Gatekeeper: Requiere aprobación manual en GitHub Environments
     environment: 
       name: production
       url: https://petpal-backend-prod.up.railway.app
     
     steps:
-      - name: 🛡️ Verificación de Seguridad
-        run: echo "🔒 Aprobación manual verificada."
+      - name: 🛑 Gatekeeper
+        run: echo "🔐 Aprobación manual verificada."
 
-      - name: 🚀 Confirmación de Despliegue
-        run: echo "✅ Desplegando versión estable a Producción en Railway."
+      - name: 🚀 Simulación de Deploy a Railway (PROD)
+        run: echo "✅ Desplegando versión final a Producción..."
