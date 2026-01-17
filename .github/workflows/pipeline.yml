@@ -1,83 +1,87 @@
-name: PetPal Backend CI/CD Pipeline
+name: 🚀 PetPal Hybrid Pipeline
 
-# Configuración de Disparadores (Triggers)
-# Se ejecuta en Push y PR hacia ramas críticas, ignorando cambios en documentación.
 on:
   push:
     branches: [ "develop", "main" ]
-    paths-ignore: [ "**.md", "docs/**" ]
   pull_request:
-    branches: [ "develop", "main" ]
-    paths-ignore: [ "**.md", "docs/**" ]
+    branches: [ "main" ]
 
-# Variables de configuración global
+permissions:
+  contents: write
+  pull-requests: write
+
 env:
-  NODE_VERSION: '20.x' # Ajustado a la versión LTS más reciente o la que uses (18.x o 20.x)
+  NODE_VERSION: '20.x'
+  RAILWAY_SERVICE_NAME: "petpal-backend"
 
 jobs:
-  # ------------------------------------------------------------------
-  # STAGE 1: CONTINUOUS INTEGRATION (CI)
-  # Construcción, instalación de dependencias y ejecución de pruebas.
-  # ------------------------------------------------------------------
-  build-and-test:
+  # 1. TESTEAR (Siempre corre)
+  test-and-build:
     name: 🏗️ Build & Test
     runs-on: ubuntu-latest
-    
     steps:
-      - name: 📥 Checkout del Código
+      - name: 📥 Checkout
         uses: actions/checkout@v4
-
-      - name: 🟢 Configurar Node.js ${{ env.NODE_VERSION }}
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
-      - name: 📦 Instalar Dependencias (Clean Install)
+      - name: 📦 Instalar
         run: npm ci
-
-      - name: 🧪 Ejecutar Suite de Pruebas (Unit & Integration)
+      - name: 🧪 Test
         run: npm test
-        # Si este paso falla, el pipeline se detiene automáticamente.
 
-  # ------------------------------------------------------------------
-  # STAGE 2: CONTINUOUS DELIVERY (CD) - QA ENVIRONMENT
-  # Despliegue automático a la rama de desarrollo.
-  # ------------------------------------------------------------------
-  deploy-qa:
-    name: 🚀 Deploy to QA
-    needs: build-and-test
+  # 2. QA (Solo informativo en GitHub, Railway lo hace solo por detrás)
+  qa-status:
+    name: ✅ QA Status
+    needs: test-and-build
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: 
+      name: qa
+      url: https://petpal-backend-qa.up.railway.app
+    steps:
+      - name: ℹ️ Info
+        run: echo "Los tests pasaron. Railway detectará el commit y actualizará QA automáticamente."
+
+  # 3. AUTO-PR (Tu robot secretario)
+  create-pr:
+    name: 🤖 Auto-PR
+    needs: test-and-build
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    
-    environment: 
-      name: qa 
-      url: https://petpal-backend-qa.up.railway.app
-    
     steps:
-      - name: 📢 Notificación de Despliegue
-        run: |
-          echo "✅ Tests validados correctamente."
-          echo "🚀 Iniciando despliegue automático en entorno QA (Railway)..."
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+      - name: 🤖 Crear PR
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: "develop"
+          destination_branch: "main"
+          pr_title: "🚀 Release Candidate: Pase a Producción"
+          pr_body: "Tests OK. QA actualizándose. Aprueba para pasar a Producción."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ------------------------------------------------------------------
-  # STAGE 3: CONTINUOUS DEPLOYMENT (CD) - PRODUCTION ENVIRONMENT
-  # Despliegue a producción protegido por aprobación manual.
-  # ------------------------------------------------------------------
+  # 4. PROD (Aquí usamos el TOKEN para forzar el deploy manual)
   deploy-production:
-    name: 🚀 Deploy to Production
-    needs: build-and-test
+    name: 🛡️ Deploy Production
+    needs: test-and-build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
-    # Gatekeeper: Requiere aprobación manual en GitHub Environments
     environment: 
       name: production
       url: https://petpal-backend-prod.up.railway.app
     
     steps:
-      - name: 🛡️ Verificación de Seguridad
-        run: echo "🔒 Aprobación manual verificada."
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+      
+      - name: 🛑 Aprobación Manual
+        run: echo "🔐 Usuario aprobó el despliegue."
 
-      - name: 🚀 Confirmación de Despliegue
-        run: echo "✅ Desplegando versión estable a Producción en Railway."
+      - name: 🚀 Empujar a Railway PROD
+        # Solo aquí usamos el token, porque le apagamos el automático a Prod
+        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
