@@ -1,0 +1,59 @@
+name: CI/CD Backend Exam
+
+# Esto le dice a GitHub: "Ejecútate cuando haya cambios en develop o main"
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+jobs:
+  # TRABAJO 1: PROBAR EL CÓDIGO (Build & Test)
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bajar código del repo
+        uses: actions/checkout@v3
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Correr Tests Unitarios
+        run: npm test
+        # Si este paso falla (rojo), el pipeline se detiene y no despliega.
+
+  # TRABAJO 2: DESPLEGAR EN QA (Automático)
+  deploy-qa:
+    needs: test-and-build  # Espera a que los tests pasen
+    if: github.ref == 'refs/heads/develop' # Solo corre si la rama es 'develop'
+    runs-on: ubuntu-latest
+    
+    # Esto conecta con el Environment 'qa' de GitHub para mostrar el historial
+    environment: 
+      name: qa 
+      url: https://petpal-backend-qa.up.railway.app # <--- CONFIRMA TU URL AQUÍ
+    
+    steps:
+      - name: Aviso de Deploy
+        run: echo "Tests pasaron. Railway detectará el commit y desplegará en QA."
+
+  # TRABAJO 3: DESPLEGAR EN PRODUCCIÓN (Manual)
+  deploy-production:
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' # Solo corre si la rama es 'main'
+    runs-on: ubuntu-latest
+    
+    # Esto activa el CANDADO de aprobación manual que configuraste ayer
+    environment: 
+      name: production
+      url: https://petpal-backend-prod.up.railway.app # <--- CONFIRMA TU URL AQUÍ
+    
+    steps:
+      - name: Aviso de Producción
+        run: echo "Aprobación concedida. Desplegando en Producción."
