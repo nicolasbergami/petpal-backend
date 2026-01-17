@@ -1,4 +1,4 @@
-name: 🚀 PetPal Full Pipeline (CI/CD + Auto PR)
+name: 🚀 PetPal Hybrid Pipeline
 
 on:
   push:
@@ -6,99 +6,82 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# Permisos necesarios para que el Bot pueda crear la PR
 permissions:
   contents: write
   pull-requests: write
 
 env:
   NODE_VERSION: '20.x'
+  RAILWAY_SERVICE_NAME: "petpal-backend"
 
 jobs:
-  # ------------------------------------------------------------------
-  # TRABAJO 1: TESTEAR Y CONSTRUIR (Común a todas las ramas)
-  # ------------------------------------------------------------------
+  # 1. TESTEAR (Siempre corre)
   test-and-build:
     name: 🏗️ Build & Test
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
-      - name: 📦 Instalar Dependencias
+      - name: 📦 Instalar
         run: npm ci
-
-      - name: 🧪 Correr Tests (con Cobertura)
+      - name: 🧪 Test
         run: npm test
 
-  # ------------------------------------------------------------------
-  # TRABAJO 2: DESPLIEGUE A QA (Solo en rama 'develop')
-  # ------------------------------------------------------------------
-  deploy-qa:
-    name: 🚀 Deploy QA
+  # 2. QA (Solo informativo en GitHub, Railway lo hace solo por detrás)
+  qa-status:
+    name: ✅ QA Status
     needs: test-and-build
-    if: github.ref == 'refs/heads/develop' # <--- CONDICIÓN CLAVE
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: 
       name: qa
       url: https://petpal-backend-qa.up.railway.app
-    
     steps:
-      - name: 🚀 Deploy simulado a QA
-        run: echo "✅ Desplegando en entorno de pruebas (Railway QA)..."
+      - name: ℹ️ Info
+        run: echo "Los tests pasaron. Railway detectará el commit y actualizará QA automáticamente."
 
-  # ------------------------------------------------------------------
-  # TRABAJO 3: CREAR PULL REQUEST AUTOMÁTICA (Solo en rama 'develop')
-  # ------------------------------------------------------------------
+  # 3. AUTO-PR (Tu robot secretario)
   create-pr:
-    name: 🤖 Auto-Create PR
+    name: 🤖 Auto-PR
     needs: test-and-build
-    # Solo corre si estamos en develop Y si no es una PR
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-
-      - name: 🤖 Generar Solicitud de Pase a Producción
+      - name: 🤖 Crear PR
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "develop"
           destination_branch: "main"
           pr_title: "🚀 Release Candidate: Pase a Producción"
-          pr_body: |
-            ### 🤖 PR Automática
-            El código en `develop` ha pasado los tests y QA.
-            
-            **Para desplegar a Producción:**
-            1. Revisa los cambios.
-            2. Haz clic en **Merge Pull Request**.
-            3. Ve a la pestaña **Actions** y aprueba el despliegue manual.
+          pr_body: "Tests OK. QA actualizándose. Aprueba para pasar a Producción."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ------------------------------------------------------------------
-  # TRABAJO 4: DESPLIEGUE A PRODUCCIÓN (Solo en rama 'main')
-  # ------------------------------------------------------------------
+  # 4. PROD (Aquí usamos el TOKEN para forzar el deploy manual)
   deploy-production:
     name: 🛡️ Deploy Production
     needs: test-and-build
-    if: github.ref == 'refs/heads/main' # <--- CONDICIÓN CLAVE
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
-    # Aquí está el CANDADO DE SEGURIDAD 🔒
     environment: 
       name: production
       url: https://petpal-backend-prod.up.railway.app
     
     steps:
-      - name: 🛑 Verificación Manual
-        run: echo "🔐 Aprobación de usuario verificada."
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+      
+      - name: 🛑 Aprobación Manual
+        run: echo "🔐 Usuario aprobó el despliegue."
 
-      - name: 🚀 Deploy a Producción
-        run: echo "✅ Desplegando versión estable a Producción..."
+      - name: 🚀 Empujar a Railway PROD
+        # Solo aquí usamos el token, porque le apagamos el automático a Prod
+        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
