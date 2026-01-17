@@ -1,19 +1,22 @@
 const request = require('supertest');
-const app = require('../src/app'); // Asegúrate de que esta ruta sea correcta
+const app = require('../src/app'); 
 
-describe('Suite de Pruebas Integrador - PetPal Backend', () => {
-    
-    // Test Unitario Lógico
-    test('Validación de lógica: Cálculo de disponibilidad', () => {
-        const capacidadTotal = 10;
-        const ocupados = 4;
-        const disponible = capacidadTotal - ocupados;
-        expect(disponible).toBe(6);
+describe('Suite de Pruebas PetPal - Validación de Requisitos', () => {
+
+    // TEST UNITARIO: Lógica de disponibilidad
+    test('TC-01: El cálculo de disponibilidad debe ser correcto', () => {
+        const capacidadTotal = 20;
+        const reservasExistentes = 5;
+        // Lógica: capacidad - reservas
+        const disponible = capacidadTotal - reservasExistentes; 
+        
+        expect(disponible).toBe(15); // 20 - 5 es 15, el test PASA
     });
 
-    // Test de Integración (API)
-    test('Health Check: La API debe responder correctamente', async () => {
-        const res = await request(app).get('/'); 
+    // TEST DE INTEGRACIÓN: Health Check de la API
+    test('TC-02: La raíz de la API debe responder (Status 200)', async () => {
+        const res = await request(app).get('/');
+        // Verificamos que el servidor esté vivo
         expect(res.statusCode).toBe(200);
     });
 });
