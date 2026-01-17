@@ -36,7 +36,7 @@ console.log("   ➡️  /api/auth registrado correctamente");
 
 // Ruta principal
 app.get('/', (req, res) => {
-    res.send('Petpal API funcionando correctamente 🚀');
+    res.send('Petpal API funcionando correctamente 🚀 2 prueba');
 });
 
 
