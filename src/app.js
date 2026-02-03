@@ -11,27 +11,22 @@ const availabilityRoutes = require('./routes/availabilityRoutes');
 
 dotenv.config();
 const app = express();
-// El puerto se define mejor en index.js, aquí solo definimos la app
-// const PORT = process.env.PORT || 3000; 
 
-// --- 2. CONFIGURACIÓN DE CORS (Lo nuevo) ---
-const whitelist = [
-  'http://localhost:8081', // Expo local
-  'http://localhost:19006', // Expo Web local
-  'https://petpal-frontend.vercel.app', // PRODUCCIÓN
-  'https://petpal-frontend-git-develop.vercel.app' // QA (Rama Develop)
-];
-
+// --- 2. CONFIGURACIÓN DE CORS (AHORA ES DINÁMICO) ---
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir requests sin origen (como Postman o Apps móbiles nativas)
-    // O requests que vengan de la whitelist
-    if (!origin || whitelist.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log("Bloqueado por CORS:", origin); // Log para debug
-      callback(new Error('Not allowed by CORS'));
-    }
+    // 1. Permitir llamadas sin origen (Postman, Insomnia, Apps Nativas)
+    if (!origin) return callback(null, true);
+
+    // 2. Permitir llamadas locales (tu PC)
+    if (origin.includes('localhost')) return callback(null, true);
+
+    // 3. LA MAGIA: Permitir CUALQUIER URL generada por Vercel
+    if (origin.includes('.vercel.app')) return callback(null, true);
+
+    // 4. Si no es ninguna de las anteriores, bloquear
+    console.log("🚫 Bloqueado por CORS:", origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
@@ -65,15 +60,7 @@ console.log("   ➡️  /api/auth registrado correctamente");
 
 // Ruta principal
 app.get('/', (req, res) => {
-    res.send('Petpal API funcionando correctamente 🚀 con CORS habilitado');
+    res.send('Petpal API funcionando correctamente 🚀 con CORS dinámico para Vercel');
 });
-
-// NOTA: Comenté esto porque ya tienes un app.listen en index.js.
-// Tener dos listens puede causar conflictos al iniciar.
-/*
-app.listen(PORT, () => {
-    console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-});
-*/
 
 module.exports = app;
