@@ -72,7 +72,7 @@ jobs:
       url: ${{ env.QA_URL }}
     steps:
       - name: ⏳ Esperando despliegue en QA
-        run: sleep 70
+        run: sleep 90
 
   # ------------------------------------------------------------------
   # FASE 3: ACCEPTANCE TESTS (E2E)
