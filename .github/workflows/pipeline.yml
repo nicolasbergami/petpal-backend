@@ -13,17 +13,16 @@ permissions:
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
-  QA_URL: "https://petpal-backend-qa.up.railway.app" 
+  QA_URL: "https://petpal-backend-qa.up.railway.app"
 
 jobs:
   # ==================================================================
   # FASE 1: CONTINUOUS INTEGRATION (CI)
-  # Corre en la máquina virtual de GitHub. No toca la nube todavía.
   # ==================================================================
   ci-tests:
     name: 🏗️ CI: Build, Unit & Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # 🛡️ Seguridad: Si tarda más de 10 min, se cancela.
+    timeout-minutes: 10
     steps:
       - name: 📥 Checkout del Código
         uses: actions/checkout@v4
@@ -34,20 +33,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       
-      - name: 📦 Instalar Dependencias (Limpio)
+      - name: 📦 Instalar Dependencias
         run: npm ci
 
-      # 1. Tests Unitarios (Lógica de Negocio con Mocks)
+      # 1. Tests Unitarios
       - name: 🧪 Ejecutar Tests Unitarios
         run: npm test
 
-      # 2. Tests de Integración (HTTP Local)
+      # 2. Tests de Integración Local
       - name: 🔗 Ejecutar Tests de Integración Local
         run: npm run test:integration
 
   # ==================================================================
   # FASE 2: ESPERA DE DEPLOY (CD - QA)
-  # Esperamos a que Railway detecte el commit y despliegue.
   # ==================================================================
   wait-for-qa-deploy:
     name: ⏳ Esperando Deploy en QA
@@ -60,12 +58,10 @@ jobs:
       url: ${{ env.QA_URL }}
     steps:
       - name: ⏳ Dormir 90s (Dando tiempo a Railway)
-        run: sleep 90 
-        # Aumentamos a 90s para asegurar que el servidor reinicie completamente.
+        run: sleep 90
 
   # ==================================================================
   # FASE 3: ACCEPTANCE TESTING (E2E)
-  # Validamos el sistema vivo en la nube.
   # ==================================================================
   acceptance-tests:
     name: 🕵️ Acceptance Tests (Live QA)
@@ -85,12 +81,10 @@ jobs:
       - name: 🤖 Correr Tests de Aceptación (E2E)
         run: npm run test:acceptance
         env:
-          # Inyectamos la URL por si deciden usar process.env.QA_URL en el futuro
-          QA_URL: ${{ env.QA_URL }} 
+          QA_URL: ${{ env.QA_URL }}
 
   # ==================================================================
   # FASE 4: AUTOMATIZACIÓN DE PULL REQUEST
-  # Si todo pasó, preparamos el pase a Producción.
   # ==================================================================
   create-pr:
     name: 🤖 Crear PR para Main
@@ -114,16 +108,15 @@ jobs:
             ✅ **QA Deploy:** Exitoso
             ✅ **Acceptance Tests (E2E):** Aprobados en Nube
             
-            Este código está listo, validado y seguro para pasar a Producción.
+            Este código está listo para Producción.
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   # ==================================================================
   # FASE 5: DEPLOY A PRODUCCIÓN (MANUAL)
-  # Solo corre en Main y requiere aprobación humana en GitHub Environments.
   # ==================================================================
   deploy-production:
     name: 🛡️ Deploy Production
-    needs: ci-tests # En main, verificamos que al menos compile y pase unitarios
+    needs: ci-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -138,7 +131,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       
       - name: 🛑 Aprobación Manual Requerida
-        run: echo "🔐 Despliegue aprobado manualmente por un operador."
+        run: echo "🔐 Despliegue aprobado manualmente."
 
       - name: 🚀 Empujar a Railway PROD
         run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
