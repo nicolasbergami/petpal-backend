@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: production
-      url: https://petpal-backend-prod.up.railway.app
+      url: https://petpal-backend-production.up.railway.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
