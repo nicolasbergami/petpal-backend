@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "cross-env NODE_ENV=test jest tests/petController.test.js", 
-    "test:integration": "jest tests/integration.test.js",
+    "test:integration": "cross-env NODE_ENV=test jest tests/integration.test.js",
+    "test:acceptance": "jest tests/acceptance.test.js",
     "dev": "nodemon src/index.js"
   },
   "keywords": [],

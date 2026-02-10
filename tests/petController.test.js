@@ -1,6 +1,11 @@
 const petController = require('../src/controllers/petController');
 const Pet = require('../src/models/petModel');
 
+jest.mock('../src/config/db', () => ({
+  connect: jest.fn(),
+  query: jest.fn(),
+  end: jest.fn()
+}));
 // 1. MOCKEAMOS EL MODELO
 // Esto es vital: Le decimos a Jest que intercepte todas las llamadas a la base de datos
 jest.mock('../src/models/petModel');

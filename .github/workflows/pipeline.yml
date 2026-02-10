@@ -13,107 +13,134 @@ permissions:
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
-  # URL de QA para los tests de aceptación
   QA_URL: "https://petpal-backend-qa.up.railway.app" 
 
 jobs:
-  # ------------------------------------------------------------------
-  # 1. UNIT TESTING (La primera barrera)
-  # ------------------------------------------------------------------
-  unit-tests:
-    name: 🧪 Unit Tests (Logic Only)
+  # ==================================================================
+  # FASE 1: CONTINUOUS INTEGRATION (CI)
+  # Corre en la máquina virtual de GitHub. No toca la nube todavía.
+  # ==================================================================
+  ci-tests:
+    name: 🏗️ CI: Build, Unit & Integration
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # 🛡️ Seguridad: Si tarda más de 10 min, se cancela.
     steps:
-      - name: 📥 Checkout
+      - name: 📥 Checkout del Código
         uses: actions/checkout@v4
-      - name: 🟢 Setup Node.js
+      
+      - name: 🟢 Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - name: 📦 Instalar
+      
+      - name: 📦 Instalar Dependencias (Limpio)
         run: npm ci
-      - name: 🔬 Ejecutar Tests Unitarios
-        run: npm test
-        # Esto asume que 'npm test' corre SOLO los tests unitarios (mocks)
 
-  # ------------------------------------------------------------------
-  # 2. QA DEPLOY & E2E TESTS (Solo en rama develop)
-  # ------------------------------------------------------------------
-  qa-e2e-verification:
-    name: 🕵️ QA Deploy & E2E
-    needs: unit-tests
+      # 1. Tests Unitarios (Lógica de Negocio con Mocks)
+      - name: 🧪 Ejecutar Tests Unitarios
+        run: npm test
+
+      # 2. Tests de Integración (HTTP Local)
+      - name: 🔗 Ejecutar Tests de Integración Local
+        run: npm run test:integration
+
+  # ==================================================================
+  # FASE 2: ESPERA DE DEPLOY (CD - QA)
+  # Esperamos a que Railway detecte el commit y despliegue.
+  # ==================================================================
+  wait-for-qa-deploy:
+    name: ⏳ Esperando Deploy en QA
+    needs: ci-tests
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     environment: 
       name: qa
       url: ${{ env.QA_URL }}
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node
-        uses: actions/setup-node@v4
+      - name: ⏳ Dormir 90s (Dando tiempo a Railway)
+        run: sleep 90 
+        # Aumentamos a 90s para asegurar que el servidor reinicie completamente.
+
+  # ==================================================================
+  # FASE 3: ACCEPTANCE TESTING (E2E)
+  # Validamos el sistema vivo en la nube.
+  # ==================================================================
+  acceptance-tests:
+    name: 🕵️ Acceptance Tests (Live QA)
+    needs: wait-for-qa-deploy
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
       
-      - name: 📦 Instalar
+      - name: 📦 Instalar Dependencias
         run: npm ci
 
-      # TRUCO: Como Railway despliega automático al detectar el commit,
-      # necesitamos esperar un poco a que el servidor se reinicie con el nuevo código.
-      - name: ⏳ Esperando que Railway despliegue en QA...
-        run: sleep 60 
-      
-      - name: 🤖 Run End-to-End / Acceptance Tests
-        run: npm run test:integration
-        # Este comando debe ejecutar los tests que le pegan a la URL real
-        # Si esto falla, el pipeline se detiene y NO crea la PR.
+      - name: 🤖 Correr Tests de Aceptación (E2E)
+        run: npm run test:acceptance
+        env:
+          # Inyectamos la URL por si deciden usar process.env.QA_URL en el futuro
+          QA_URL: ${{ env.QA_URL }} 
 
-  # ------------------------------------------------------------------
-  # 3. AUTO-PR (El premio si QA pasó)
-  # ------------------------------------------------------------------
+  # ==================================================================
+  # FASE 4: AUTOMATIZACIÓN DE PULL REQUEST
+  # Si todo pasó, preparamos el pase a Producción.
+  # ==================================================================
   create-pr:
-    name: 🤖 Crear Pull Request
-    needs: qa-e2e-verification
+    name: 🤖 Crear PR para Main
+    needs: acceptance-tests
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: 📩 Generar PR a Main
+      - name: 📩 Generar Pull Request
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "develop"
           destination_branch: "main"
           pr_title: "🚀 Release Candidate: ${{ github.sha }}"
-          pr_body: "✅ Tests Unitarios Pasaron.\n✅ Deploy en QA exitoso.\n✅ Tests E2E/Aceptación en QA aprobados.\n\nListo para pase a Producción."
+          pr_body: |
+            ## 🤖 Reporte de Pipeline Automático
+            
+            ✅ **Unit Tests:** Pasaron
+            ✅ **Integration Tests:** Pasaron
+            ✅ **QA Deploy:** Exitoso
+            ✅ **Acceptance Tests (E2E):** Aprobados en Nube
+            
+            Este código está listo, validado y seguro para pasar a Producción.
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ------------------------------------------------------------------
-  # 4. DEPLOY PRODUCCIÓN (Solo en rama main y manual)
-  # ------------------------------------------------------------------
+  # ==================================================================
+  # FASE 5: DEPLOY A PRODUCCIÓN (MANUAL)
+  # Solo corre en Main y requiere aprobación humana en GitHub Environments.
+  # ==================================================================
   deploy-production:
     name: 🛡️ Deploy Production
-    needs: unit-tests
+    needs: ci-tests # En main, verificamos que al menos compile y pase unitarios
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: 
       name: production
       url: https://petpal-backend-prod.up.railway.app
     
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node & Railway CLI
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
       
-      - name: 🛑 Esperando Aprobación Manual
-        run: echo "🔐 Despliegue aprobado por un humano."
+      - name: 🛑 Aprobación Manual Requerida
+        run: echo "🔐 Despliegue aprobado manualmente por un operador."
 
-      - name: 🚀 Ejecutar Deploy a Railway PROD
+      - name: 🚀 Empujar a Railway PROD
         run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
