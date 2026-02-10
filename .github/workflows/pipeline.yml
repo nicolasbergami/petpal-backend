@@ -15,7 +15,7 @@ permissions:
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
-  QA_URL: "https://petpal-backend-qa.up.railway.app"
+  QA_URL: "https://dazzling-motivation-qa.up.railway.app"
 
 jobs:
   # ------------------------------------------------------------------
