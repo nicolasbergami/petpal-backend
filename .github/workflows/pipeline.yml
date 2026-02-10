@@ -1,4 +1,4 @@
-name: 🚀 PetPal Hybrid Pipeline
+name: 🚀 PetPal Ultimate Pipeline
 
 on:
   push:
@@ -13,11 +13,15 @@ permissions:
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
+  # URL de QA para los tests de aceptación
+  QA_URL: "https://petpal-backend-qa.up.railway.app" 
 
 jobs:
-  # 1. TESTEAR (Siempre corre)
-  test-and-build:
-    name: 🏗️ Build & Test
+  # ------------------------------------------------------------------
+  # 1. UNIT TESTING (La primera barrera)
+  # ------------------------------------------------------------------
+  unit-tests:
+    name: 🧪 Unit Tests (Logic Only)
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout
@@ -29,44 +33,68 @@ jobs:
           cache: 'npm'
       - name: 📦 Instalar
         run: npm ci
-      - name: 🧪 Test
+      - name: 🔬 Ejecutar Tests Unitarios
         run: npm test
+        # Esto asume que 'npm test' corre SOLO los tests unitarios (mocks)
 
-  # 2. QA (Solo informativo en GitHub, Railway lo hace solo por detrás)
-  qa-status:
-    name: ✅ QA Status
-    needs: test-and-build
+  # ------------------------------------------------------------------
+  # 2. QA DEPLOY & E2E TESTS (Solo en rama develop)
+  # ------------------------------------------------------------------
+  qa-e2e-verification:
+    name: 🕵️ QA Deploy & E2E
+    needs: unit-tests
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: 
       name: qa
-      url: https://petpal-backend-qa.up.railway.app
-    steps:
-      - name: ℹ️ Info
-        run: echo "Los tests pasaron. Railway detectará el commit y actualizará QA automáticamente."
-
-  # 3. AUTO-PR (Tu robot secretario)
-  create-pr:
-    name: 🤖 Auto-PR
-    needs: test-and-build
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+      url: ${{ env.QA_URL }}
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-      - name: 🤖 Crear PR
+      
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: 📦 Instalar
+        run: npm ci
+
+      # TRUCO: Como Railway despliega automático al detectar el commit,
+      # necesitamos esperar un poco a que el servidor se reinicie con el nuevo código.
+      - name: ⏳ Esperando que Railway despliegue en QA...
+        run: sleep 60 
+      
+      - name: 🤖 Run End-to-End / Acceptance Tests
+        run: npm run test:integration
+        # Este comando debe ejecutar los tests que le pegan a la URL real
+        # Si esto falla, el pipeline se detiene y NO crea la PR.
+
+  # ------------------------------------------------------------------
+  # 3. AUTO-PR (El premio si QA pasó)
+  # ------------------------------------------------------------------
+  create-pr:
+    name: 🤖 Crear Pull Request
+    needs: qa-e2e-verification
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 📩 Generar PR a Main
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "develop"
           destination_branch: "main"
-          pr_title: "🚀 Release Candidate: Pase a Producción"
-          pr_body: "Tests OK. QA actualizándose. Aprueba para pasar a Producción."
+          pr_title: "🚀 Release Candidate: ${{ github.sha }}"
+          pr_body: "✅ Tests Unitarios Pasaron.\n✅ Deploy en QA exitoso.\n✅ Tests E2E/Aceptación en QA aprobados.\n\nListo para pase a Producción."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # 4. PROD (Aquí usamos el TOKEN para forzar el deploy manual)
+  # ------------------------------------------------------------------
+  # 4. DEPLOY PRODUCCIÓN (Solo en rama main y manual)
+  # ------------------------------------------------------------------
   deploy-production:
     name: 🛡️ Deploy Production
-    needs: test-and-build
+    needs: unit-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: 
@@ -77,11 +105,15 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
       
-      - name: 🛑 Aprobación Manual
-        run: echo "🔐 Usuario aprobó el despliegue."
+      - name: 🟢 Setup Node & Railway CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: 🛑 Esperando Aprobación Manual
+        run: echo "🔐 Despliegue aprobado por un humano."
 
-      - name: 🚀 Empujar a Railway PROD
-        # Solo aquí usamos el token, porque le apagamos el automático a Prod
+      - name: 🚀 Ejecutar Deploy a Railway PROD
         run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
