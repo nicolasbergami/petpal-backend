@@ -1,4 +1,4 @@
-name: 🚀 PetPal Hybrid Pipeline
+name: 🚀 PetPal Ultimate Pipeline
 
 on:
   push:
@@ -13,75 +13,111 @@ permissions:
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
+  QA_URL: "https://petpal-backend-qa.up.railway.app"
 
 jobs:
-  # 1. TESTEAR (Siempre corre)
-  test-and-build:
-    name: 🏗️ Build & Test
+  # ------------------------------------------------------------------
+  # FASE 1: CI (Build & Tests)
+  # ------------------------------------------------------------------
+  ci-tests:
+    name: 🏗️ CI - Tests
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-      - name: 🟢 Setup Node.js
+      
+      - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+      
       - name: 📦 Instalar
         run: npm ci
-      - name: 🧪 Test
+
+      - name: 🧪 Unit Tests
         run: npm test
 
-  # 2. QA (Solo informativo en GitHub, Railway lo hace solo por detrás)
-  qa-status:
-    name: ✅ QA Status
-    needs: test-and-build
+      - name: 🔗 Integration Tests
+        run: npm run test:integration
+
+  # ------------------------------------------------------------------
+  # FASE 2: QA DEPLOY WAIT
+  # ------------------------------------------------------------------
+  wait-for-qa-deploy:
+    name: ⏳ Wait QA Deploy
+    needs: ci-tests
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: 
       name: qa
-      url: https://petpal-backend-qa.up.railway.app
+      url: ${{ env.QA_URL }}
     steps:
-      - name: ℹ️ Info
-        run: echo "Los tests pasaron. Railway detectará el commit y actualizará QA automáticamente."
+      - name: ⏳ Dormir 90s
+        run: sleep 90
 
-  # 3. AUTO-PR (Tu robot secretario)
-  create-pr:
-    name: 🤖 Auto-PR
-    needs: test-and-build
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+  # ------------------------------------------------------------------
+  # FASE 3: ACCEPTANCE TESTS (E2E)
+  # ------------------------------------------------------------------
+  acceptance-tests:
+    name: 🕵️ E2E Acceptance
+    needs: wait-for-qa-deploy
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-      - name: 🤖 Crear PR
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: 📦 Instalar
+        run: npm ci
+
+      - name: 🤖 Run E2E Tests
+        run: npm run test:acceptance
+        env:
+          QA_URL: ${{ env.QA_URL }}
+
+  # ------------------------------------------------------------------
+  # FASE 4: CREATE PR
+  # ------------------------------------------------------------------
+  create-pr:
+    name: 🤖 Create PR
+    needs: acceptance-tests
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 📩 Generar PR
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "develop"
           destination_branch: "main"
-          pr_title: "🚀 Release Candidate: Pase a Producción"
-          pr_body: "Tests OK. QA actualizándose. Aprueba para pasar a Producción."
+          pr_title: "🚀 Release Candidate: ${{ github.sha }}"
+          pr_body: "✅ Tests y Deploy en QA exitosos. Listo para Prod."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # 4. PROD (Aquí usamos el TOKEN para forzar el deploy manual)
+  # ------------------------------------------------------------------
+  # FASE 5: DEPLOY PROD
+  # ------------------------------------------------------------------
   deploy-production:
     name: 🛡️ Deploy Production
-    needs: test-and-build
+    needs: ci-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: 
       name: production
       url: https://petpal-backend-prod.up.railway.app
-    
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       
       - name: 🛑 Aprobación Manual
-        run: echo "🔐 Usuario aprobó el despliegue."
+        run: echo "🔐 Despliegue aprobado manualmente."
 
-      - name: 🚀 Empujar a Railway PROD
-        # Solo aquí usamos el token, porque le apagamos el automático a Prod
+      - name: 🚀 Deploy Railway PROD
         run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment production --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

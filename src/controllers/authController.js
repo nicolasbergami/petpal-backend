@@ -8,6 +8,10 @@ dotenv.config();
 const login = (req, res) => {
     console.log("Entrando al método login"); 
     const { email, password } = req.body;
+    // ✅ NUEVA VALIDACIÓN: Si no hay datos, cortamos aquí con un 400.
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email y contraseña son obligatorios' });
+    }
 
     User.getByEmail(email, (err, results) => {
         if (err) {
