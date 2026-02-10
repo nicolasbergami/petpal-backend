@@ -60,7 +60,7 @@ console.log("   ➡️  /api/auth registrado correctamente");
 
 // Ruta principal
 app.get('/', (req, res) => {
-    res.send('Petpal API funcionando correctamente 🚀 con CORS dinámico para Vercel PRUEBA CON FELI ');
+    res.send('Petpal API funcionando correctamente 🚀 con CORS dinámico para Vercel TEST PASADOS BIEN ');
 });
 
 module.exports = app;
