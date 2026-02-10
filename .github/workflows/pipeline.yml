@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: write      # 👈 NUEVO: Necesario para publicar los reportes de tests
+  statuses: write    # 👈 NUEVO: Para actualizar estados del commit
 
 env:
   NODE_VERSION: '20.x'
@@ -35,11 +37,27 @@ jobs:
       - name: 📦 Instalar
         run: npm ci
 
+      # 1. Tests Unitarios (Generando Reporte XML)
       - name: 🧪 Unit Tests
-        run: npm test
+        run: npm test -- --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_NAME: "reports/unit-tests.xml"
 
+      # 2. Tests de Integración (Generando Reporte XML)
       - name: 🔗 Integration Tests
-        run: npm run test:integration
+        run: npm run test:integration -- --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_NAME: "reports/integration-tests.xml"
+
+      # 3. PUBLICAR REPORTES (Solo si fallan o terminan)
+      - name: 📊 Publicar Reportes CI
+        uses: dorny/test-reporter@v1
+        if: always() # 👈 Importante: Se ejecuta aunque los tests fallen
+        with:
+          name: 🧪 Resultados Unitarios e Integración
+          path: reports/*.xml
+          reporter: jest-junit
+          fail-on-error: false
 
   # ------------------------------------------------------------------
   # FASE 2: QA DEPLOY WAIT
@@ -73,10 +91,22 @@ jobs:
       - name: 📦 Instalar
         run: npm ci
 
+      # Generar Reporte XML de Aceptación
       - name: 🤖 Run E2E Tests
-        run: npm run test:acceptance
+        run: npm run test:acceptance -- --reporters=default --reporters=jest-junit
         env:
           QA_URL: ${{ env.QA_URL }}
+          JEST_JUNIT_OUTPUT_NAME: "reports/acceptance-tests.xml"
+
+      # Publicar Reporte de Aceptación
+      - name: 📊 Publicar Reporte E2E
+        uses: dorny/test-reporter@v1
+        if: always() 
+        with:
+          name: 🕵️ Resultados de Aceptación (QA)
+          path: reports/acceptance-tests.xml
+          reporter: jest-junit
+          fail-on-error: false
 
   # ------------------------------------------------------------------
   # FASE 4: CREATE PR
@@ -94,7 +124,7 @@ jobs:
           source_branch: "develop"
           destination_branch: "main"
           pr_title: "🚀 Release Candidate: ${{ github.sha }}"
-          pr_body: "✅ Tests y Deploy en QA exitosos. Listo para Prod."
+          pr_body: "✅ Tests y Deploy en QA exitosos. Ver pestaña 'Checks' para reportes detallados."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   # ------------------------------------------------------------------
