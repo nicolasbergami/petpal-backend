@@ -57,7 +57,7 @@ jobs:
           reporter: jest-junit
           fail-on-error: false
 
-  # ------------------------------------------------------------------
+# ------------------------------------------------------------------
   # FASE 2: DEPLOY QA
   # ------------------------------------------------------------------
   deploy-qa:
@@ -75,10 +75,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: 🚀 Trigger Railway Deploy (QA)
-        # Usamos el ID del entorno QA (el que empieza con e828...)
-        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment "e828deff-7916-413a-8ff9-3055a978b096" --detach
+        # CAMBIOS REALIZADOS:
+        # 1. --service: Usamos el ID "6a6a..." en lugar del nombre.
+        # 2. --environment: Mantenemos el ID "e828..." que ya tenías.
+        run: npx -y @railway/cli up --service "6a6a5de4-03d6-419c-b83d-86f922a72f47" --environment "e828deff-7916-413a-8ff9-3055a978b096" --detach
         env:
-          # 👇 AQUÍ ESTÁ LA CLAVE: Usamos el secreto ESPECÍFICO de QA
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_QA }}
 
       - name: ⏳ Wait for Container Cold Start
