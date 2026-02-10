@@ -76,7 +76,7 @@ jobs:
 
       - name: 🚀 Trigger Railway Deploy (QA)
         # Reemplaza 'qa' por el nombre exacto de tu entorno en Railway si es distinto
-        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment qa --detach
+        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment "e828deff-7916-413a-8ff9-3055a978b096" --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
