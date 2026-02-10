@@ -33,7 +33,7 @@ describe('Pet Controller - Tests Unitarios', () => {
     describe('createPet', () => {
         it('Debe crear una mascota correctamente (201)', () => {
             // GIVEN: Datos válidos
-            req.body = { name: '', pet_type: 'dog', breed: 'Labrador' };
+            req.body = { name: 'Firulais', pet_type: 'dog', breed: 'Labrador' };
             const mockInsertResult = { insertId: 10 };
 
             // Simulamos que el modelo responde exitosamente
