@@ -9,12 +9,13 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  checks: write      # 👈 NUEVO: Necesario para publicar los reportes de tests
-  statuses: write    # 👈 NUEVO: Para actualizar estados del commit
+  checks: write
+  statuses: write
 
 env:
   NODE_VERSION: '20.x'
   RAILWAY_SERVICE_NAME: "petpal-backend"
+  # Asegúrate que este sea el entorno correcto en Railway
   QA_URL: "https://dazzling-motivation-qa.up.railway.app"
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
   # FASE 1: CI (Build & Tests)
   # ------------------------------------------------------------------
   ci-tests:
-    name: 🏗️ CI - Tests
+    name: 🏗️ CI - Tests & Build Check
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout
@@ -34,25 +35,22 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       
-      - name: 📦 Instalar
+      - name: 📦 Instalar Dependencias
         run: npm ci
 
-      # 1. Tests Unitarios (Generando Reporte XML)
-      - name: 🧪 Unit Tests
+      - name: 🧪 Ejecutar Unit Tests
         run: npm test -- --reporters=default --reporters=jest-junit
         env:
           JEST_JUNIT_OUTPUT_NAME: "reports/unit-tests.xml"
 
-      # 2. Tests de Integración (Generando Reporte XML)
-      - name: 🔗 Integration Tests
+      - name: 🔗 Ejecutar Integration Tests
         run: npm run test:integration -- --reporters=default --reporters=jest-junit
         env:
           JEST_JUNIT_OUTPUT_NAME: "reports/integration-tests.xml"
 
-      # 3. PUBLICAR REPORTES (Solo si fallan o terminan)
       - name: 📊 Publicar Reportes CI
         uses: dorny/test-reporter@v1
-        if: always() # 👈 Importante: Se ejecuta aunque los tests fallen
+        if: always()
         with:
           name: 🧪 Resultados Unitarios e Integración
           path: reports/*.xml
@@ -60,26 +58,39 @@ jobs:
           fail-on-error: false
 
   # ------------------------------------------------------------------
-  # FASE 2: QA DEPLOY WAIT
+  # FASE 2: DEPLOY QA (¡Ahora controlado por GitHub!)
   # ------------------------------------------------------------------
-  wait-for-qa-deploy:
-    name: ⏳ Wait QA Deploy
-    needs: ci-tests
+  deploy-qa:
+    name: 🚀 Deploy to QA Environment
+    needs: ci-tests  # 👈 ESTO ES CLAVE: Solo corre si los tests pasaron
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: 
       name: qa
       url: ${{ env.QA_URL }}
     steps:
-      - name: ⏳ Esperando despliegue en QA
-        run: sleep 90
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 🚀 Trigger Railway Deploy (QA)
+        # Reemplaza 'qa' por el nombre exacto de tu entorno en Railway si es distinto
+        run: npx -y @railway/cli up --service ${{ env.RAILWAY_SERVICE_NAME }} --environment qa --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      # Mantenemos un pequeño sleep porque --detach libera la terminal rápido,
+      # pero Railway tarda unos segundos en iniciar el nuevo contenedor.
+      - name: ⏳ Wait for Container Cold Start
+        run: sleep 60 
 
   # ------------------------------------------------------------------
-  # FASE 3: ACCEPTANCE TESTS (E2E)
+  # FASE 3: QA VALIDATION (UAT & SMOKE TESTS)
   # ------------------------------------------------------------------
-  acceptance-tests:
-    name: 🕵️ E2E Acceptance
-    needs: wait-for-qa-deploy
+  qa-e2e-validation:
+    name: 🧪 QA Validation - E2E Suite
+    needs: deploy-qa # 👈 Ahora espera a que se mande el deploy
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
@@ -91,19 +102,17 @@ jobs:
       - name: 📦 Instalar
         run: npm ci
 
-      # Generar Reporte XML de Aceptación
-      - name: 🤖 Run E2E Tests
+      - name: 🚀 Execute Acceptance Test Suite (QA)
         run: npm run test:acceptance -- --reporters=default --reporters=jest-junit
         env:
           QA_URL: ${{ env.QA_URL }}
           JEST_JUNIT_OUTPUT_NAME: "reports/acceptance-tests.xml"
 
-      # Publicar Reporte de Aceptación
-      - name: 📊 Publicar Reporte E2E
+      - name: 📊 Publish Quality Gate Reports
         uses: dorny/test-reporter@v1
         if: always() 
         with:
-          name: 🕵️ Resultados de Aceptación (QA)
+          name: 📋 Reporte de Validación QA (E2E)
           path: reports/acceptance-tests.xml
           reporter: jest-junit
           fail-on-error: false
@@ -113,7 +122,7 @@ jobs:
   # ------------------------------------------------------------------
   create-pr:
     name: 🤖 Create PR
-    needs: acceptance-tests
+    needs: qa-e2e-validation
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
@@ -124,7 +133,7 @@ jobs:
           source_branch: "develop"
           destination_branch: "main"
           pr_title: "🚀 Release Candidate: ${{ github.sha }}"
-          pr_body: "✅ Tests y Deploy en QA exitosos. Ver pestaña 'Checks' para reportes detallados."
+          pr_body: "✅ Tests y Deploy en QA exitosos. Listo para Prod."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   # ------------------------------------------------------------------
@@ -132,7 +141,7 @@ jobs:
   # ------------------------------------------------------------------
   deploy-production:
     name: 🛡️ Deploy Production
-    needs: ci-tests
+    needs: ci-tests # En Main saltamos directo a prod tras los tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: 
