@@ -33,7 +33,7 @@ const createPet = (req, res) => {
     };
 
     // Validaciones
-    if (!newPet.name || !newPet.pet_type) {
+    if (newPet.name || !newPet.pet_type) {
         return res.status(400).json({ message: 'Nombre y tipo de mascota son obligatorios' });
     }
     if (!['dog', 'cat'].includes(newPet.pet_type)) {
